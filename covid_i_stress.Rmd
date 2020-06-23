@@ -105,7 +105,7 @@ There appear to be global period effects as almost all countries decline in conc
 
 #### Figure 2 (Appendix Only). Countries with Consistent Data Throughout the Survey
 
-This figure demonstrates that risk perceptions decline in most countries after the first few months, suggesting there are period effects. But given that there are so few countries with consistent longitudinal data, an analysis of these period effects or time itself is not adviseable, if even possible at all.
+This figure demonstrates that risk perceptions decline in most countries after the first few months, suggesting there are period effects. But given that there are so few countries with consistent longitudinal data, an analysis of these period effects or time itself is not advisable, if at all possible.
 
 ```{r briefsummary}
 
@@ -294,12 +294,24 @@ confirmed_long <- confirmed_long[order(confirmed_long$cow, confirmed_long$date),
 
 deaths_long <- deaths_long %>%
   mutate(dead_l5 = lag(dead, n = 5L),
-         dead_lead = lead(dead, n = 18L)) # create 2.5 week lead (18 days)
+         dead_lead = lead(dead, n = 18L), # create 2.5 week lead (18 days)
+         dead_s = ifelse(dead > 0, 1, 0),# first death ID
+         dead_s1l = lag(dead_s, 1L),
+         dead_dif = dead_s - dead_s1l,
+         dead_dif = ifelse(cow == 710 & date == as.Date("2020-01-22"), 1, dead_dif))
+         
+# first death date
+
+deaths_long <- deaths_long %>%
+  group_by(cow) %>%
+  mutate(dead_1st = dplyr::if_else(dead_dif == 1, as.Date(date), as.Date("2020-06-02")),
+         dead_1st_date = min(dead_1st, na.rm=T)) %>%
+  ungroup()
 
 confirmed_long <- confirmed_long %>%
   mutate(conf_l5 = lag(conf, n = 5L))
 
-deaths_long <- select(deaths_long, dead, dead_l5, dead_lead, date, cow)
+deaths_long <- select(deaths_long, dead, dead_l5, dead_lead, dead_1st_date, date, cow)
 confirmed_long <- select(confirmed_long, conf, conf_l5, date, cow)
 
 # l5 variable comes from the wrong series prior to 1-27
@@ -315,7 +327,7 @@ cis$date = as.Date(cis$EndDate)
 cis <- left_join(cis,deaths_long, by = c("cow","date"))
 cis <- left_join(cis,confirmed_long, by = c("cow","date"))
 
-cis_dk <- subset(cis, cow == 390)
+# cis_dk <- subset(cis, cow == 390)
 
 ```
 
@@ -350,7 +362,7 @@ geip <- select(geip,cow,lfcov)
 
 #### Maddison Data - GDP
 
-(see book chapter for details) Population of each country using wbstats
+(see book chapter for details)
 
 ```{r data5, warning = F, message = F}
 gdpm <- read.csv(wdir("A02/workcomp/mpd2018.csv"), header=T, stringsAsFactors = F)
@@ -394,12 +406,14 @@ socp <- completeFun(socp, "soc_spend")
 
 #### Policy Responses
 
-Stay at home restriction timing
+##### Stay at home restriction timing
 
 Mandatory =  a code of 2 or 3
 
 Policy Responses to the Coronavirus Pandemic, by Hannah Ritchie, Max Roser, Esteban Ortiz-Ospina and Joe Hasell 
 https://ourworldindata.org/policy-responses-covid (downloaded June 19th, reformated date column to yyyy-mm-dd)
+
+
 ```{r roser, warning = F, message = F}
 presp <- read.csv(wdir("COVIDiSTRESS/stay-at-home-covid.csv"), header = T)
 colnames(presp) <- c("country","iso","date","policy")
@@ -418,10 +432,33 @@ presp <- presp %>%
          stay_home_day = min(stay_home_1st, na.rm=T)) %>%
   ungroup()
 
+# US had no systematic stay home order (only some states)
+
+presp$stay_home_day <- dplyr::if_else(presp$cow == 2, as.Date("2020-06-02"), presp$stay_home_day)
+
 presp$days_since_stayhome <- as.Date("2020-06-02") - presp$stay_home_day
 
-presp <- select(presp, cow, days_since_stayhome)
+# later: create intervention variable as time between first death and mandatory stay home
+
+presp <- select(presp, cow, days_since_stayhome, stay_home_day)
 presp <- aggregate(presp, by = list(presp$cow), FUN = min)
+```
+
+##### School Closures
+
+https://www.bsg.ox.ac.uk/research/research-projects/coronavirus-government-response-tracker#data
+
+School closures:
+0 - No measures
+1 - recommend closing
+2 - Require closing (only some levels or categories,
+eg just high school, or just public schools)
+3 - Require closing all levels
+No data - blank
+
+```{r schooldata}
+presps <- read.csv(wdir("COVIDiSTRESS/OxCGRT_timeseries_all.csv"), header = T)
+
 ```
 
 
@@ -480,7 +517,7 @@ deaths_longCL <- deaths_longCL %>%
 png(file = wdir("Fig1.png"), width = 580, height = 580)
 ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
     geom_line() +
-  labs(x= "", y = "Outbreak Severity (death log, 18 day lead)") +
+  labs(x= "", y = "Outbreak Severity (log deaths, 18 day lead)") +
   geom_segment(aes(x = as.Date("2020-03-27"), y = 1, xend = as.Date("2020-03-27"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
   geom_segment(aes(x = as.Date("2020-04-30"), y = 1, xend = as.Date("2020-04-30"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
   annotate("text", x= as.Date("2020-01-21"), y= 5, 
@@ -513,7 +550,7 @@ dev.off()
 # 130 = 120,000
 
 ```
-### 1.8 Merge Data
+### Merge Data
 
 ```{r aggregate, message=F, warning=F}
 
@@ -529,10 +566,10 @@ cis_b$cases <- ifelse(cis_b$cases<20, NA, cis_b$cases)
 cis_a$cases <- ifelse(cis_a$cases<20, NA, cis_a$cases)
 cis_a <- completeFun(cis_a, "cases")
 
-cis_a <- select(cis_a, cow, concern_self, concern_society, dead, dead_l5, conf, conf_l5, dead_lead)
+cis_a <- select(cis_a, cow, concern_self, concern_society, dead, dead_l5, conf, conf_l5, dead_lead, dead_1st_date, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, Corona_concerns_4, Corona_concerns_5)
 
 
-colnames(cis_a) <- c("cow","concern_self","concern_society", "dead", "dead_lag5", "conf", "conf_lag5","dead_lead")
+colnames(cis_a) <- c("cow","concern_self","concern_society", "dead", "dead_lag5", "conf", "conf_lag5","dead_lead", "dead_1st_date", "Corona1", "Corona2", "Corona3", "Corona4", "Corona5")
 # add iso
 
 
@@ -548,6 +585,7 @@ finaldf_C <- full_join(cis_a, socp, by = "cow")
 finaldf_C <- full_join(finaldf_C, geip, by = "cow")
 finaldf_C <- full_join(finaldf_C, gdpc, by = "cow")
 finaldf_C <- left_join(finaldf_C, presp, by = "cow")
+
 
 # Make an individual level correlation table dataset
 
@@ -576,54 +614,52 @@ finaldf_C <- finaldf_C %>%
          country = ifelse(iso == "MKD", "N Macedonia", country),
          soc_spend = ifelse(iso == "MKD", 10, soc_spend), # as with BIH
          lfcov = ifelse(iso == "MKD", 30, lfcov),
-         lfcov = ifelse(iso == "QAT", 15, lfcov)) # like ARE (UAE)
+         lfcov = ifelse(iso == "QAT", 15, lfcov), # like ARE (UAE)
+         dead_lead_log = ifelse(dead_lead == 0 | dead_lead == 1, 1, log(dead_lead)),
+         days_since_stayhome = as.numeric(days_since_stayhome),
+         gdp = ifelse(gdp > 68000, 68, gdp/1000)) #trim GDP to improve visualization
+
+# Welfare State Strength Measure
+
+finaldf_C$socpolicy <- standardize(finaldf_C$soc_spend * finaldf_C$lfcov)
+
 
 # add hopkins data
 
 finaldf_C <- full_join(finaldf_C, hopkins, by = "cow")
 
+# Three countries missing days since stay at home
+# Malta never imposed stay at home for everyone https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Malta
+# Grenada March 29th https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Grenada
+# North Macedonia March 18th
+
+finaldf_C$days_since_stayhome <- ifelse(finaldf_C$Country == "Malta", 0, ifelse(finaldf_C$Country == "Grenada", 63, ifelse(finaldf_C$Country == "North Macedonia", 84, finaldf_C$days_since_stayhome)))
+
+finaldf_C$stay_home_day <- dplyr::if_else(finaldf_C$Country == "Malta", as.Date("2020-06-02"), dplyr::if_else(finaldf_C$Country == "Grenada", as.Date("2020-03-31"), dplyr::if_else(finaldf_C$Country == "North Macedonia", as.Date("2020-03-10"), finaldf_C$stay_home_day)))
+
+
+# Days to Government Intervention, time it Took Government to Introduce Stay Home Rule
+
+finaldf_C$intervention <- as.numeric(finaldf_C$stay_home_day - finaldf_C$dead_1st_date)
+
+# Countries that had not introduced stay home as of June 2nd recoded to the max value 110
+
+finaldf_C$intervention <- ifelse(finaldf_C$stay_home_day == "2020-06-02", 70, finaldf_C$intervention)
+
+# Two countries have no deaths, VNM & GDR so rescale their values to be closer to the distribution
+
+finaldf_C$intervention <- ifelse(finaldf_C$intervention < -20, -20, finaldf_C$intervention)
+
 finaldf_C <- completeFun(finaldf_C, "iso")
 
+# somehow ended up with a duplicate of the Russian case
+finaldf_C$cow <- ifelse(finaldf_C$cow==365 & finaldf_C$pop < 200000, NA, finaldf_C$cow)
+finaldf_C <- completeFun(finaldf_C, "cow")
 
-# rm(f1,f2,fit1,fit2,gdpm,geip,socp,hopkins,deaths_long,deaths,datem, cor, confirmed_long, confirmed, cis1_na)
-```
+# Concerns about data, for example the question wording or languages available. Or simply just massive outliers affecting the regression lines. Remove GTM, MKD, BIH, HRV.
 
+finaldf_C <- select(finaldf_C, country, intervention, dead_1st_date, stay_home_day, everything())
 
-```{r measurement1, echo=T}
-cor <- select(cis_b, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, concern_self, Corona_concerns_4, Corona_concerns_5, concern_society, dead_lead, socpolicy, gdp, days_since_stayhome)
-
-cor$days_since_stayhome <- as.numeric(cor$days_since_stayhome)
-
-f1 <- cor(cor, use = "pairwise.complete.obs")
-# corrplot::corrplot(f1)
-
-# The country question is an outlier
-
-cor1 <- kable(f1, digits = 2, col.names = c("Concern_Self", "Concern_Family", "Concern_Friends","Personal_Concern_Scale", "Concern_Country", "Concern_Other_Countries", "Societal_Concern_Scale","Outbreak Severity", "Welfare State Strength", "GDP per capita", "Days Since Mandatory Stay Home"))
-kable_styling(cor1)
-```
-
-```{r savepoint}
-save.image(file=wdir("COVIDiSTRESS/cis2.RData"))
-
-```
-
-```
-
-
-
-
-
-## 2 Visualization  & Analysis
-
-Users may start here by loading the R environment file: https://osf.io/5rb9c/
-
-
-
-```{r round2load, warning=F, message=F, echo=T}
-load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
-
-# recodes
 finaldf_C <- finaldf_C %>%
   mutate(dead_log = log(dead),
          dead_log = ifelse(dead_log=="-Inf", 0, ifelse(dead_log=="Inf", 0, dead_log)),
@@ -642,28 +678,15 @@ finaldf_C <- finaldf_C %>%
          deadpc = dead/pop,
          dead_deltapc = dead_delta/pop,
          deadpc_log = log(deadpc),
-         dead_deltapc_log = log(dead_deltapc))
+         dead_deltapc_log = log(dead_deltapc),
+         dead_lead_log2 = dead_lead_log^2)
 
 # necessary for plotting features
 finaldf_C$spendr <- round(finaldf_C$soc_spend,0)
 mid <- 14
 
-#trim GDP to improve visualization
-finaldf_C$gdp <- finaldf_C$gdp/1000
-finaldf_C$gdp <- ifelse(finaldf_C$gdp>68, 68, finaldf_C$gdp)
-
-# somehow ended up with a duplicate of the Russian case
-finaldf_C$cow <- ifelse(finaldf_C$cow==365 & finaldf_C$pop < 200000, NA, finaldf_C$cow)
-finaldf_C <- completeFun(finaldf_C, "cow")
-
-# Serious concerns about data, for example the question wording or languages available. Or simply just massive outliers affecting the regression lines. Remove GTM, MKD, BIH, HRV.
-
-# store a copy of the full data
-finaldf_Ca <- finaldf_C
-finaldf_C <- subset(finaldf_C, iso!= "GTM" & iso!= "MKD" & iso!= "BIH" & iso!= "HRV" & iso!="SVN")
-
 # remove annoying extra rows
-finaldf_C <- select(finaldf_C, cow, concern_self, concern_society, dead, dead_lag5, conf, conf_lag5, iso, country, soc_spend, year, source, lfcov, gdp, pop, p_mar25, p_apr4, dead_log, dead_lag5_log, conf_log, conf_lag5_log, dead_delta, conf_delta, dead_delta_log, conf_delta_log, deadpc, dead_deltapc, deadpc_log, dead_deltapc_log, spendr)
+finaldf_C <- select(finaldf_C, cow, concern_self, concern_society, dead, dead_lag5, conf, conf_lag5, iso, country, soc_spend, year, source, lfcov, gdp, pop, dead_log, dead_lag5_log, conf_log, conf_lag5_log, dead_delta, conf_delta, dead_delta_log, conf_delta_log, deadpc, dead_deltapc, deadpc_log, dead_deltapc_log, spendr, dead_lead, dead_lead_log, socpolicy, days_since_stayhome, intervention, Corona1, Corona2, Corona3, Corona4, Corona5)
 
 # fix -Inf values
 finaldf_C$deadpc_log <- ifelse(finaldf_C$deadpc_log == "-Inf", -10, finaldf_C$deadpc_log)
@@ -672,8 +695,57 @@ finaldf_C$dead_deltapc_log <- ifelse(finaldf_C$dead_deltapc_log == "-Inf", -10.5
 # create an average scale of concern
 finaldf_C$concern <- (finaldf_C$concern_self + finaldf_C$concern_society)/2
 
-# test out a soc spending * lfcov variable
-finaldf_C$socsec <- standardize(finaldf_C$soc_spend*finaldf_C$lfcov)
+# store a copy of the full data
+finaldf_Ca <- finaldf_C
+finaldf_C <- subset(finaldf_C, iso!= "GTM" & iso!= "MKD" & iso!= "BIH" & iso!= "HRV" & iso!="SVN")
+
+# rm(f1,f2,fit1,fit2,gdpm,geip,socp,hopkins,deaths_long,deaths,datem, cor, confirmed_long, confirmed, cis1_na)
+```
+
+
+```{r measurement1, echo=T}
+# individual level
+cor <- select(cis_b, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, concern_self, Corona_concerns_4, Corona_concerns_5, concern_society)
+
+corC <- select(finaldf_C, Corona1, Corona2, Corona3, concern_self, Corona4, Corona5, concern_society, dead_lead_log, conf_delta_log, socpolicy, gdp, intervention)
+
+f1 <- cor(cor, use = "pairwise.complete.obs")
+f2 <- cor(corC, use = "pairwise.complete.obs")
+# corrplot::corrplot(f1)
+
+# The country question is an outlier
+cor1 <- kable(f1, digits = 2, col.names = c("Concern_Self", "Concern_Family", "Concern_Friends","Personal_Concern_Scale", "Concern_Country", "Concern_Other_Countries", "Societal_Concern_Scale"))
+cor2 <- kable(f2, digits = 2, col.names = c("Concern_Self", "Concern_Family", "Concern_Friends","Personal_Concern_Scale", "Concern_Country", "Concern_Other_Countries", "Societal_Concern_Scale","Outbreak Severity, log deaths", "New Cases, 1-week","Welfare State Strength, spend*coverage", "GDP per capita", "Government Response, days since 1st death"))
+```
+
+#### Individual Level Correlations
+
+```{r measurement1a, echo=T}
+kable_styling(cor1)
+```
+
+#### Country Level Correlations
+```{r measurement1b, echo=T}
+kable_styling(cor2)
+```
+
+```{r savepoint}
+save.image(file=wdir("COVIDiSTRESS/cis2.RData"))
+
+```
+
+
+
+## 2 Visualization  & Analysis
+
+Users may start here by loading the R environment file: https://osf.io/5rb9c/
+
+
+
+```{r round2load, warning=F, message=F, echo=T}
+# load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
+
+
 ```
 
 ### Fig 1. Covid-19 Two Types of Concern, by Country
@@ -698,25 +770,25 @@ ggplot(data=finaldf_C, aes(x= reorder(country, -concern_self), y=concern_self)) 
 
 ```
 
-### Fig 2. Confirmed Cases Increase and Self Concern by Country
+### Fig 2. Outbreak Severity and Self Concern by Country
 
 ```{r fig2, warning = F, message=F, echo=T}
 
-ggplot(data=finaldf_C, aes(x=conf_delta_log, y=concern_self)) +
+ggplot(data=finaldf_Ca, aes(x=dead_lead_log, y=concern_self)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "grey20", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
-  labs(x= "Total Deaths, logged", y = "Coronavirus Concerns, Self") +
+  labs(x= "Outbreak Severity (log deaths, 18 day lead)", y = "Coronavirus Concerns, Self") +
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 ```
 
-### Fig 3. Confirmed Cases Increase and Society Concern by Country
+### Fig 3. Outbreak Severity and Society Concern by Country
 
 ```{r fig3, warning = F, message=F, echo=T}
 
-ggplot(data=finaldf_C, aes(x=conf_delta_log, y=concern_society)) +
+ggplot(data=finaldf_Ca, aes(x=dead_lead_log, y=concern_society)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "grey20", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
@@ -761,11 +833,11 @@ ggplot(data=finaldf_C, aes(x=conf_delta_log, y=concern_society)) +
 
 
 ```{r fig6, warning = F, message=F, echo=T}
-ggplot(data=finaldf_C, aes(x=soc_spend, y=concern_self)) +
+ggplot(data=finaldf_C, aes(x=socpolicy, y=concern_self)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "grey20", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
-  labs(x= "Social Spending, as % of GDP", y = "Coronavirus Concerns, Self") +
+  labs(x= "Welfare State Strength (spending*coverage)", y = "Coronavirus Concerns, Self") +
     theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
@@ -775,11 +847,11 @@ ggplot(data=finaldf_C, aes(x=soc_spend, y=concern_self)) +
 
 
 ```{r fig7, warning = F, message=F}
-ggplot(data=finaldf_C, aes(x=socsec, y=concern)) +
+ggplot(data=finaldf_C, aes(x=socpolicy, y=concern)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "grey20", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
-  labs(x= "Social Spending, as % of GDP", y = "Coronavirus Concerns, Society") +
+  labs(x= "Welfare State Strength (spending*coverage)", y = "Coronavirus Concerns, Society") +
     theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
@@ -790,8 +862,6 @@ ggplot(data=finaldf_C, aes(x=socsec, y=concern)) +
 
 
 ```{r fig8, warning = F, message=F, echo=T}
-
-
 
 ggplot(data=finaldf_C, aes(x=gdp, y=concern_self)) +
   geom_point() +
@@ -824,13 +894,13 @@ ggplot(data=finaldf_C, aes(x=gdp, y=concern_society)) +
 
 
 ```{r fig10, warning = F, message=F, echo=T}
-mid <- 14
-ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=spendr)) +
+mid <- 0.1
+ggplot(data=finaldf_C, aes(x=dead_lead_log, y=concern_self, color=socpolicy)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
   scale_color_gradient2(midpoint=mid, low="red", mid="gray55", high="blue", space="Lab") +
-  labs(x= "Log Deaths", y = "Coronavirus Concerns, Self", color = "Social Spending\n(% of GDP)") +
+  labs(x= "Outbreak Severity (log deaths, 18 day lead)", y = "Coronavirus Concerns, Self", color = "Welfare State\nStrength") +
       theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -841,13 +911,13 @@ ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=spendr)) +
 
 
 ```{r fig11, warning = F, message=F, echo=T}
-mid <- 14
-ggplot(data=finaldf_C, aes(x=dead_log, y=concern_society, color=spendr)) +
+mid <- 0.1
+ggplot(data=finaldf_C, aes(x=dead_lead_log, y=concern_society, color=socpolicy)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
   scale_color_gradient2(midpoint=mid, low="red", mid="gray55", high="blue", space="Lab") +
-  labs(x= "Log Deaths", y = "Coronavirus Concerns, Society", color = "Social Spending\n(% of GDP)") +
+  labs(x= "Log Deaths", y = "Coronavirus Concerns, Society", color = "Welfare State\nStrength") +
       theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -860,7 +930,7 @@ ggplot(data=finaldf_C, aes(x=dead_log, y=concern_society, color=spendr)) +
 
 ```{r fig12, warning = F, message=F, echo=T}
 mid <- 32
-ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=gdp)) +
+ggplot(data=finaldf_C, aes(x=dead_lead_log, y=concern_self, color=gdp)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
@@ -874,9 +944,9 @@ ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=gdp)) +
 ### Fig 13. Deaths and Covid Concern Society by GDP
 
 
-```{r fig12, warning = F, message=F, echo=T}
+```{r fig13, warning = F, message=F, echo=T}
 mid <- 32
-ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=gdp)) +
+ggplot(data=finaldf_C, aes(x=dead_lead_log, y=concern_society, color=gdp)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
@@ -887,71 +957,94 @@ ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=gdp)) +
         panel.grid.minor = element_blank(),
         legend.title = element_text(size = 9))
 ```
-
-### Fig 14. Work-Related Coverage and Covid Concern Self by Country
-
-
+#### Fig 14. Intervention and Concerns
 ```{r fig14, warning = F, message=F, echo=T}
-mid <- 0
-ggplot(data=finaldf_C, aes(x=dead_log, y=concern_self, color=socsec)) +
+mid <- 6
+
+ggplot(data=finaldf_C, aes(x=intervention, y=concern_self, color=dead_lead_log)) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.5) +
   scale_color_gradient2(midpoint=mid, low="red", mid="gray55", high="blue", space="Lab") +
-  labs(x= "Log Deaths", y = "Coronavirus Concerns, Self", color = "Employment Protection\n(coverage, % of LF)") +
+  labs(x= "Government Intervention, days since 1st death", y = "Coronavirus Concerns, Self", color = "Outbreak Severity\n(log deaths, 18-lead)") +
       theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         legend.title = element_text(size = 9))
-
 ```
 
-### Fig 15. Work-Related Coverage and Covid Concern Society by Country
 
 
-```{r fig15, warning = F, message=F, echo=T}
-mid <- 62
-ggplot(data=finaldf_C, aes(x=dead_log, y=concern_society, color=lfcov)) +
-  geom_point() +
-  geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
-  geom_text_repel(aes(label = iso), size = 2.5) +
-  scale_color_gradient2(midpoint=mid, low="red", mid="gray55", high="blue", space="Lab") +
-  labs(x= "Log Deaths", y = "Coronavirus Concerns, Society", color = "Employment Protection\n(coverage, % of LF)") +
-      theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 9))
-
-```
 ## Regressions
 
 ### Table 1. Regression Model, Concerns for Self
 
-```{r regression, warning = F, message=F}
-
-
+```{r T1reg, warning = F, message=F}
 
 m1 <- lm(concern_self ~ conf_delta_log, data = finaldf_C)
-m2 <- lm(concern_self ~ conf_log , data = finaldf_C)
-m3 <- lm(concern_self ~ socsec, data = finaldf_C)
+m2 <- lm(concern_self ~ dead_lead_log , data = finaldf_C)
+m3 <- lm(concern_self ~ socpolicy, data = finaldf_C)
 m4 <- lm(concern_self ~ gdp , data = finaldf_C)
-m5 <- lm(concern_self ~ conf_delta_log + socsec + gdp, data = finaldf_C)
-m6 <- lm(concern_self ~ conf_delta_log + conf_log + socsec + gdp, data = finaldf_C)
+m5 <- lm(concern_self ~ intervention, data = finaldf_C)
+m6 <- lm(concern_self ~ conf_delta_log + socpolicy + gdp, data = finaldf_C)
+m7 <- lm(concern_self ~ conf_delta_log + dead_lead_log + socpolicy + gdp + intervention, data = finaldf_C)
 
-tab_model(m1, m2, m3, m4, m5, m6, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("m1", "m2","m3","m4", "m5", "m6"), pred.labels = c("Weekly Increase in Cases, log", "Total Cases, log", "Social Policy Extent", "GDP per capita (k)"))
+tab_model(m1, m2, m3, m4, m5, m6, m7, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("m1", "m2","m3","m4", "m5", "m6","m7"), pred.labels = c("New Cases, 1-week", "Outbreak Severity, log deaths (18-lead)", "Welfare State, spending*coverage", "GDP per capita, k at parity", "Intervention, days since 1st death"))
+```
+
+### Table 1a. With Outlier Countries. Regression Model, Concerns for Self
+
+
+```{r T1areg, warning = F, message=F}
+
+m1a <- lm(concern_self ~ conf_delta_log, data = finaldf_Ca)
+m2a <- lm(concern_self ~ dead_lead_log , data = finaldf_Ca)
+m3a <- lm(concern_self ~ socpolicy, data = finaldf_Ca)
+m4a <- lm(concern_self ~ gdp , data = finaldf_Ca)
+m5a <- lm(concern_self ~ intervention, data = finaldf_Ca)
+m6a <- lm(concern_self ~ conf_delta_log + socpolicy + gdp, data = finaldf_Ca)
+m7a <- lm(concern_self ~ conf_delta_log + dead_lead_log + socpolicy + gdp + intervention, data = finaldf_Ca)
+
+tab_model(m1a, m2a, m3a, m4a, m5a, m6a, m7a, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("m1", "m2","m3","m4", "m5", "m6","m7"), pred.labels = c("New Cases, 1-week", "Outbreak Severity, log deaths (18-lead)", "Welfare State, spending*coverage", "GDP per capita, k at parity", "Intervention, days since 1st death"))
+
+```
+
+
+### Table 2. Regression Model, Societal-Level Concerns
+
+```{r T2reg, warning = F, message=F}
+
+m11 <- lm(concern_society ~ conf_delta_log, data = finaldf_C)
+m12 <- lm(concern_society ~ dead_lead_log , data = finaldf_C)
+m13 <- lm(concern_society ~ socpolicy, data = finaldf_C)
+m14 <- lm(concern_society ~ gdp , data = finaldf_C)
+m15 <- lm(concern_society ~ intervention, data = finaldf_C)
+m16 <- lm(concern_society ~ conf_delta_log + socpolicy + gdp, data = finaldf_C)
+m17 <- lm(concern_society ~ conf_delta_log + dead_lead_log + socpolicy + gdp + intervention, data = finaldf_C)
+
+tab_model(m11, m12, m13, m14, m15, m16, m17, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("m1", "m2","m3","m4", "m5", "m6","m7"), pred.labels = c("New Cases, 1-week", "Outbreak Severity, log deaths (18-lead)", "Welfare State, spending*coverage", "GDP per capita, k at parity", "Intervention, days since 1st death"))
           # file = wdir("tabs.html"))
 ```
 
-### Table 2. Regression Model, Concerns for Society
+### Table 2a. With Outlier Countries. Regression Model, Concerns for Self
 
-```{r regression2, warning = F, message=F}
-m1c <- lm(concern_society ~ conf_delta_log, data = finaldf_C)
-m2c <- lm(concern_society ~ conf_log , data = finaldf_C)
-m3c <- lm(concern_society ~ socsec, data = finaldf_C)
-m4c <- lm(concern_society ~ gdp , data = finaldf_C)
-m5c <- lm(concern_society ~ conf_delta_log + socsec + gdp, data = finaldf_C)
-m6c <- lm(concern_society ~ conf_delta_log + conf_log + socsec + gdp, data = finaldf_C)
 
-tab_model(m1c, m2c, m3c, m4c, m5c, m6c, p.style = "stars", p.threshold = c(0.10, 0.075, 0.05), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("m7","m8","m9","m10", "m11", "m12"), pred.labels = c("Weekly Increase in Cases, log", "Total Cases, log", "Social Policy Extent", "GDP per capita (k)"))
-         # file = wdir("tabc.html"))
+```{r T2areg, warning = F, message=F}
+
+m11a <- lm(concern_society ~ conf_delta_log, data = finaldf_Ca)
+m12a <- lm(concern_society ~ dead_lead_log , data = finaldf_Ca)
+m13a <- lm(concern_society ~ socpolicy, data = finaldf_Ca)
+m14a <- lm(concern_society ~ gdp , data = finaldf_Ca)
+m15a <- lm(concern_society ~ intervention, data = finaldf_Ca)
+m16a <- lm(concern_society ~ conf_delta_log + socpolicy + gdp, data = finaldf_Ca)
+m17a <- lm(concern_society ~ conf_delta_log + dead_lead_log + socpolicy + gdp + intervention, data = finaldf_Ca)
+
+tab_model(m11a, m12a, m13a, m14a, m15a, m16a, m17a, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("m1", "m2","m3","m4", "m5", "m6","m7"),pred.labels = c("New Cases, 1-week", "Outbreak Severity, log deaths (18-lead)", "Welfare State, spending*coverage", "GDP per capita, k at parity", "Intervention, days since 1st death"))
+          # file = wdir("tabs.html"))
 ```
+
+```{r finalreg, echo = T}
+tab_model(m7, m17, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.std = T, show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("Self Concerns","Societal Concerns"), pred.labels = c("New Cases, 1-week", "Outbreak Severity, log deaths (18-lead)", "Welfare State, spending*coverage", "GDP per capita, k at parity", "Intervention, days since 1st death"))
+```
+
+
