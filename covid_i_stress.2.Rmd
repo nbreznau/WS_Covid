@@ -50,6 +50,15 @@ load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
 
 ```
 
+
+### Table 1. Descriptive Correlations and Model Indices
+
+Taken from covid_i_stress.Rmd https://osf.io/cbep2/
+
+![Table_1](C:/GitHub/WS_Covid/Tbl1.png)
+
+
+
 ### Fig A. Covid-19 Two Types of Concern, by Country
 
 ```{r figA, echo=T}
@@ -183,8 +192,16 @@ m5 <- lm(concern_self ~ days_since_peak + conf_delta + intervention*socpolicy, d
 
 tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3","M4", "M5"), pred.labels = c("Days Since Curve Inflection", "New Cases",  "GDP", "Welfare State Strength", "Government Intervention", "Intervention*GDP", "Intervention*Welfare State"), file = wdir("Tbl2.html"))
 
-
 ```
+
+#### Model X. reviewer requested model with intervention alone
+
+```{r reviwermodel}
+m3x <- lm(concern_self ~ days_since_peak + conf_delta + intervention, data = finaldf_C)
+
+tab_model(m3x)
+```
+
 
 Standardized effect for M3
 
