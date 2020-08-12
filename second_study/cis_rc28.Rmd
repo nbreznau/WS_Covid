@@ -1,0 +1,123 @@
+---
+title: "Institutionalized Inequality and Risk Perceptions: Government Intervention and Social Welfare during the Novel Coronavirus Pandemic"
+output: html_notebook
+---
+
+This is a follow up study of 
+
+Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*.
+
+The following files are necessary to run this code
+
+cis2.Rdata                            the data from Breznau (2020)
+covid-stringency-index.csv            https://ourworldindata.org/grapher/covid-stringency-index
+WID_Data_12082020-063047.xlsx          https://wid.world/data/
+ZA6900_v2-0-0.dta                     ISSP RoG 2016
+
+
+```{r setup}
+
+rm(list = ls(all = T))
+
+wd <- "C:/data" #set your working directory here
+
+wdir <- function(x){
+  paste(wd,x, sep = "/")
+}
+
+
+# need pacman package installed to run this
+# install.packages("pacman")
+pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl","foreign")
+
+```
+
+
+```{r load_prep}
+# Breznau 2020
+load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
+
+# keep only the df of interest
+rm(list=ls()[! ls() %in% c("finaldf_C","finaldf_Ca", "wdir", "wd")])
+
+# government response
+gov_resp <- read.csv(file = wdir("COVIDiSTRESS/covid-stringency-index.csv"), header = T)
+
+# income concentration
+top_inc <- read_xlsx(wdir("COVIDiSTRESS/WID_Data_12082020-063047.xlsx"))
+
+# ISSP RoG
+issp16 <- foreign::read.dta(wdir("ZA6900_v2-0-0.dta"), convert.factors = F)
+
+# countries to keep
+countries <- as.list(finaldf_Ca$cow)
+
+# remove unused countries
+issp16$cow <- countrycode(issp16$c_alphan, "iso2c", "cown")
+
+# fix GB
+issp16$cow <- ifelse(issp16$c_alphan == "GB-GBN", 200, issp16$cow)
+issp16 <- issp16[issp16$cow %in% countries, ]
+
+# NOTE: ISSP has only 32 countries out of the 70 in CiS
+
+```
+
+
+```{r clean_issp}
+# recode all questions so that higher values indicate support for government intervention
+issp16 <- issp16 %>%
+  mutate(cut_spend = car::recode(v7, '"8"=NA;"9"=NA'),
+         spend_jobs = car::recode(v8, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+         reg_biz = car::recode(v9, '"8"=NA;"9"=NA'),
+         sup_ind = car::recode(v10, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+         sup_ind2 = car::recode(v11, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+         gov_jobs = car::recode(v21, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_prices = car::recode(v22, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_health = car::recode(v23, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_old = car::recode(v24, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_ind3 = car::recode(v25, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_unemp = car::recode(v26, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_incd = car::recode(v27, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_house = car::recode(v29, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_laws = car::recode(v30, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil = car::recode(v38, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil2 = car::recode(v39, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_open = car::recode(v40, '10=5;9=4.5;8=4;7=3.5;6=3.5;5=3;4=2.5;3=2.5;2=2;1=1.5;0=1;else=NA'),
+         gov_secure = car::recode(v41, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_detain = car::recode(v43, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil3 = car::recode(v44, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil4 = car::recode(v45, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_nosay = car::recode(v7, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+  )
+
+# create average gov intervention score
+issp16df <- select(issp16, cow, cut_spend:gov_nosay)
+issp16df$gov_intv <- rowMeans(issp16df[,-1], na.rm=T)
+
+
+issp16dfa <- aggregate(issp16df, by = list(issp16df$cow), FUN = mean, na.rm = T)
+
+issp16dfa <- select(issp16dfa, cow, gov_intv)
+
+rm(issp16)
+
+```
+
+```{r clean_blavatnik}
+
+# select measures as of end of March (start of the survey period)
+
+gov_resp <- subset(gov_resp, Date == "24-Mar-20")
+gov_resp$cow <- countrycode(gov_resp$Entity, "country.name", "cown")
+
+# fix Serbia
+gov_resp$cow <- ifelse(gov_resp$Entity == "Serbia", 345, gov_resp$cow)
+
+# select countries
+gov_resp <- gov_resp[gov_resp$cow %in% countries, ]
+
+
+
+```
+
