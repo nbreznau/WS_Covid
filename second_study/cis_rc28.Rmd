@@ -104,7 +104,7 @@ rm(issp16)
 
 ```
 
-```{r clean_blavatnik}
+```{r clean_blavatnik, warning = F, message = F}
 
 # select measures as of end of March (start of the survey period)
 
@@ -118,6 +118,23 @@ gov_resp$cow <- ifelse(gov_resp$Entity == "Serbia", 345, gov_resp$cow)
 gov_resp <- gov_resp[gov_resp$cow %in% countries, ]
 
 
+
+```
+```{r clean_ineq, message = F, warning = F}
+top_inc <- top_inc %>%
+  mutate(cow = countrycode(Country, "country.name", "cown"))
+
+top_inc$cow <- ifelse(top_inc$Country == "Serbia", 345, top_inc$cow)
+
+top_inc1 <- subset(top_inc, top_inc$Percentile == "p99p100")
+top_inc2 <- subset(top_inc, top_inc$Percentile == "p90p100")
+top_inc1 <- subset(top_inc1, !is.na(top_inc1$cow))
+top_inc2 <- subset(top_inc2, !is.na(top_inc2$cow))
+top_inc1 <- top_inc1[,c(8:12,13)]
+top_inc2 <- top_inc2[,c(3:7,13)]
+top_inc1$top1 <- rowMeans(top_inc1[,1:5], na.rm = T)
+top_inc2$top10 <- rowMeans(top_inc2[,1:5], na.rm = T)
+rm(top_inc)
 
 ```
 
