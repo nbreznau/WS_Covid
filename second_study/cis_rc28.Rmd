@@ -11,9 +11,10 @@ The following files are necessary to run this code
 
 cis2.Rdata                            the data from Breznau (2020)
 covid-stringency-index.csv            https://ourworldindata.org/grapher/covid-stringency-index
-WID_Data_12082020-063047.xlsx          https://wid.world/data/
+WID_Data_12082020-063047.xlsx         https://wid.world/data/
 ZA6900_v2-0-0.dta                     ISSP RoG 2016
 swiid8_3.Rda                          Solt Gini data
+
 Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly doi: 10.1111/ssqu.12795
 
 
@@ -71,6 +72,9 @@ issp16 <- issp16[issp16$cow %in% countries, ]
 
 
 ```{r clean_issp}
+# consider using data from the 2006 ISSP to add more countries
+
+
 # recode all questions so that higher values indicate support for government intervention
 issp16 <- issp16 %>%
   mutate(cut_spend = car::recode(v7, '"8"=NA;"9"=NA'),
@@ -103,6 +107,8 @@ issp16df$gov_intv <- rowMeans(issp16df[,-1], na.rm=T)
 
 # make a second - inequality related only - scale
 issp16df$gov_ineq <- rowMeans(issp16df[,c(3,7,9,12,13)], na.rm =T)
+
+# create an authoritarian scale (just the surveillance items), maybe this is more the type of 'intervention' we want to measure
 
 
 issp16dfa <- aggregate(issp16df, by = list(issp16df$cow), FUN = mean, na.rm = T)
@@ -242,12 +248,17 @@ df$m1r <- df$concern_self - df$m1p
 # plot fitted v observed
 ggplot(df, aes(y=m1p, x=concern_self)) +
   geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
+  geom_label_repel(aes(label=iso), vjust = 1.5) +
+  geom_abline(slope=1) +
+
   xlab("Observed Risk Perceptions") +
   ylab("Predicted Risk Perceptions") +
   theme_classic()
 
+#   geom_smooth(method=lm, se=FALSE) +
+
+mx <- lm(m1r ~ gini_disp, data = df)
+summary(mx)
   
 ```
 
@@ -267,10 +278,14 @@ ggplot(df, aes(y=m1r, x=gini_disp)) +
 ```
 
 ```{r reg}
+# fix case numbers
+
 m2 <- lm(concern_self ~ days_since_peak + conf_delta + intervention + gini_disp, data = df)
 
 m3 <- lm(concern_self ~ days_since_peak + conf_delta + intervention + gdp, data = df)
 
-tab_model(m1, m2, m3, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3"), pred.labels = c("Days Since Curve Inflection", "New Cases", "Intervention Speed", "Gini, post", "GDP"))
+m4 <- lm(concern_self ~ days_since_peak + conf_delta + intervention*gini_disp + gdp, data = df)
+
+tab_model(m1, m2, m3, m4, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3"), pred.labels = c("Days Since Curve Inflection", "New Cases", "Intervention Speed", "Gini, post", "GDP", "Welfare State"))
 ```
 
