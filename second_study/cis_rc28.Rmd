@@ -13,6 +13,9 @@ cis2.Rdata                            the data from Breznau (2020)
 covid-stringency-index.csv            https://ourworldindata.org/grapher/covid-stringency-index
 WID_Data_12082020-063047.xlsx          https://wid.world/data/
 ZA6900_v2-0-0.dta                     ISSP RoG 2016
+swiid8_3.Rda                          Solt Gini data
+Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly doi: 10.1111/ssqu.12795
+
 
 
 ```{r setup}
@@ -48,6 +51,9 @@ top_inc <- read_xlsx(wdir("COVIDiSTRESS/WID_Data_12082020-063047.xlsx"))
 
 # ISSP RoG
 issp16 <- foreign::read.dta(wdir("ZA6900_v2-0-0.dta"), convert.factors = F)
+
+# Solt Gini
+load(wdir("COVIDiSTRESS/swiid8_3.Rda"))
 
 # countries to keep
 countries <- as.list(finaldf_Ca$cow)
@@ -95,10 +101,13 @@ issp16 <- issp16 %>%
 issp16df <- select(issp16, cow, cut_spend:gov_nosay)
 issp16df$gov_intv <- rowMeans(issp16df[,-1], na.rm=T)
 
+# make a second - inequality related only - scale
+issp16df$gov_ineq <- rowMeans(issp16df[,c(3,7,9,12,13)], na.rm =T)
+
 
 issp16dfa <- aggregate(issp16df, by = list(issp16df$cow), FUN = mean, na.rm = T)
 
-issp16dfa <- select(issp16dfa, cow, gov_intv)
+issp16dfa <- select(issp16dfa, cow, gov_intv, gov_ineq)
 
 rm(issp16)
 
@@ -117,9 +126,13 @@ gov_resp$cow <- ifelse(gov_resp$Entity == "Serbia", 345, gov_resp$cow)
 # select countries
 gov_resp <- gov_resp[gov_resp$cow %in% countries, ]
 
+colnames(gov_resp) <- c("1","2","3","gov_resp","cow")
 
+gov_resp <- select(gov_resp, cow, gov_resp)
 
 ```
+
+
 ```{r clean_ineq, message = F, warning = F}
 top_inc <- top_inc %>%
   mutate(cow = countrycode(Country, "country.name", "cown"))
@@ -134,7 +147,130 @@ top_inc1 <- top_inc1[,c(8:12,13)]
 top_inc2 <- top_inc2[,c(3:7,13)]
 top_inc1$top1 <- rowMeans(top_inc1[,1:5], na.rm = T)
 top_inc2$top10 <- rowMeans(top_inc2[,1:5], na.rm = T)
+top_inc1 <- select(top_inc1, cow, top1)
+top_inc2 <- select(top_inc2, cow, top10)
+# china appears multiple times
+top_inc1 <- aggregate(top_inc1, by = list(top_inc1$cow), FUN = mean, na.rm = T)
+top_inc2 <- aggregate(top_inc2, by = list(top_inc2$cow), FUN = mean, na.rm = T)
 rm(top_inc)
 
+```
+
+
+```{r clean_solt}
+rm(swiid)
+swiid_summary$cow <- countrycode(swiid_summary$country, "country.name", "cown")
+swiid_summary <- subset(swiid_summary, year >= 2016)
+swiid_summary <- select(swiid_summary, cow, gini_disp)
+swiid_summary <- aggregate(swiid_summary, by = list(swiid_summary$cow), FUN = mean, na.rm = T)
+gini_disp <- select(swiid_summary, cow, gini_disp)
+
+rm(swiid_summary)
+
+
+
+```
+
+```{r merge}
+
+df <- left_join(finaldf_Ca, gov_resp, by = "cow")
+df <- left_join(df, gini_disp, by = "cow")
+df <- left_join(df, issp16dfa, by = "cow")
+df <- left_join(df, top_inc1, by = "cow")
+df <- left_join(df, top_inc2, by = "cow")
+
+```
+
+```{r plot1}
+ggplot(df, aes(y=gov_resp, x=gov_intv)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("General Public Preferences for Government Intervention") +
+  ylab("Severity of Government Pandemic Measures") +
+  theme_classic()
+  
+```
+
+```{r plot2}
+ggplot(df, aes(y=gov_resp, x=gov_ineq)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Public Preferences for Government Redistribution") +
+  ylab("Severity of Government Pandemic Measures") +
+  theme_classic()
+  
+```
+```{r plot3}
+ggplot(df, aes(y=gov_resp, x=gini_disp)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Gini, post-tax and transfer") +
+  ylab("Severity of Government Pandemic Measures") +
+  theme_classic()
+  
+```
+
+
+
+
+```{r plot4}
+ggplot(df, aes(y=concern_self, x=gov_resp)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Severity of Government Pandemic Measures") +
+  ylab("Risk Perceptions") +
+  theme_classic()
+  
+```
+
+
+```{r adjusted_risk}
+
+# adjust risk for severity of outbreak
+m1 <- lm(concern_self ~ days_since_peak + conf_delta + intervention, data = df)
+
+# predicted values
+df$m1p <- predict.lm(m1, df)
+
+# residuals
+df$m1r <- df$concern_self - df$m1p 
+
+# plot fitted v observed
+ggplot(df, aes(y=m1p, x=concern_self)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Observed Risk Perceptions") +
+  ylab("Predicted Risk Perceptions") +
+  theme_classic()
+
+  
+```
+
+
+```{r plot6}
+
+
+ggplot(df, aes(y=m1r, x=gini_disp)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Gini, post-tax and transfer") +
+  ylab("Gap Between Predicted and Observed Risk Perceptions (residuals)") +
+  theme_classic()
+
+#   
+```
+
+```{r reg}
+m2 <- lm(concern_self ~ days_since_peak + conf_delta + intervention + gini_disp, data = df)
+
+m3 <- lm(concern_self ~ days_since_peak + conf_delta + intervention + gdp, data = df)
+
+tab_model(m1, m2, m3, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3"), pred.labels = c("Days Since Curve Inflection", "New Cases", "Intervention Speed", "Gini, post", "GDP"))
 ```
 
