@@ -1,0 +1,387 @@
+---
+title: 'Institutionalized Inequality and Risk Perceptions: Government Intervention
+  and Social Welfare during the Novel Coronavirus Pandemic'
+output:
+  html_document:
+    df_print: paged
+---
+
+This is a follow up study of 
+
+Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*.
+
+The following files are necessary to run this code
+
+cis2.Rdata                            the data from Breznau (2020)
+covid-stringency-index.csv            https://ourworldindata.org/grapher/covid-stringency-index
+WID_Data_14082020-111941.xlsx         https://wid.world/data/
+ZA6900_v2-0-0.dta                     ISSP RoG 2016
+swiid8_3.Rda                          Solt Gini data
+
+Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly doi: 10.1111/ssqu.12795
+
+
+
+```{r setup}
+
+rm(list = ls(all = T))
+
+wd <- "C:/data" #set your working directory here
+
+wdir <- function(x){
+  paste(wd,x, sep = "/")
+}
+
+
+# need pacman package installed to run this
+# install.packages("pacman")
+pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl","foreign")
+
+```
+
+
+```{r load_prep, message = F, warning = F}
+# Breznau 2020
+load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
+
+# keep only the df of interest
+rm(list=ls()[! ls() %in% c("finaldf_C","finaldf_Ca", "wdir", "wd")])
+
+# government response
+gov_resp <- read.csv(file = wdir("COVIDiSTRESS/covid-stringency-index.csv"), header = T)
+
+# income concentration
+top_inc <- read_xlsx(wdir("COVIDiSTRESS/WID_Data_14082020-111941.xlsx"))
+
+# ISSP RoG
+issp16 <- foreign::read.dta(wdir("ZA6900_v2-0-0.dta"), convert.factors = F)
+
+# Solt Gini
+load(wdir("COVIDiSTRESS/swiid8_3.Rda"))
+
+# countries to keep
+countries <- as.list(finaldf_Ca$cow)
+
+# remove unused countries
+issp16$cow <- countrycode(issp16$c_alphan, "iso2c", "cown")
+
+# fix GB
+issp16$cow <- ifelse(issp16$c_alphan == "GB-GBN", 200, issp16$cow)
+issp16 <- issp16[issp16$cow %in% countries, ]
+
+# NOTE: ISSP has only 32 countries out of the 70 in CiS
+
+```
+
+
+```{r clean_issp, include = F}
+# This code chunk is for study # 3, not used here
+
+
+# consider using data from the 2006 ISSP to add more countries
+
+
+# recode all questions so that higher values indicate support for government intervention
+issp16 <- issp16 %>%
+  mutate(cut_spend = car::recode(v7, '"8"=NA;"9"=NA'),
+         spend_jobs = car::recode(v8, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+         reg_biz = car::recode(v9, '"8"=NA;"9"=NA'),
+         sup_ind = car::recode(v10, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+         sup_ind2 = car::recode(v11, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+         gov_jobs = car::recode(v21, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_prices = car::recode(v22, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_health = car::recode(v23, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_old = car::recode(v24, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_ind3 = car::recode(v25, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_unemp = car::recode(v26, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_incd = car::recode(v27, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_house = car::recode(v29, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_laws = car::recode(v30, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil = car::recode(v38, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil2 = car::recode(v39, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_open = car::recode(v40, '10=5;9=4.5;8=4;7=3.5;6=3.5;5=3;4=2.5;3=2.5;2=2;1=1.5;0=1;else=NA'),
+         gov_secure = car::recode(v41, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_detain = car::recode(v43, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil3 = car::recode(v44, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_surveil4 = car::recode(v45, '1=5;2=4;8=3;3=2;4=1;else=NA'),
+         gov_nosay = car::recode(v7, '1=5;2=4;3=3;4=2;5=1;else=NA'),
+  )
+
+# create average gov intervention score
+issp16df <- select(issp16, cow, cut_spend:gov_nosay)
+issp16df$gov_intv <- rowMeans(issp16df[,-1], na.rm=T)
+
+# make a second - inequality related only - scale
+issp16df$gov_ineq <- rowMeans(issp16df[,c(3,7,9,12,13)], na.rm =T)
+
+# create an authoritarian scale (just the surveillance items), maybe this is more the type of 'intervention' we want to measure
+
+
+issp16dfa <- aggregate(issp16df, by = list(issp16df$cow), FUN = mean, na.rm = T)
+
+issp16dfa <- dplyr::select(issp16dfa, cow, gov_intv, gov_ineq)
+
+rm(issp16)
+
+```
+
+```{r clean_blavatnik, warning = F, message = F}
+
+# select measures as of end of March (start of the survey period)
+
+gov_resp <- subset(gov_resp, Date == "24-Mar-20")
+gov_resp$cow <- countrycode(gov_resp$Entity, "country.name", "cown")
+
+colnames(gov_resp) <- c("1","2","3","gov_resp","cow")
+
+
+
+# select countries
+gov_resp <- gov_resp[gov_resp$cow %in% countries, ]
+
+# impute Grenada, Malta and N Macedonia (using Wikipedia info)
+# Grenada, strong lockdown, very few cases. Score = 87
+# Malta, moderate measures. Score = 70
+# N Macedonia, very strong, near total lockdown. Score = 93
+gov_resp[72,1] <- 55
+gov_resp[72,2] <- 87
+
+gov_resp[73,1] <- 338
+gov_resp[73,2] <- 70
+
+gov_resp[74,1] <- 343
+gov_resp[74,2] <- 93
+
+gov_resp <- select(gov_resp, cow, gov_resp)
+
+```
+
+
+```{r clean_ineq, message = F, warning = F}
+top_inc <- top_inc %>%
+  mutate(cow = countrycode(Country, "country.name", "cown"))
+
+top_inc1 <- subset(top_inc, top_inc$Percentile == "p99p100")
+top_inc2 <- subset(top_inc, top_inc$Percentile == "p90p100")
+top_inc1 <- subset(top_inc1, !is.na(top_inc1$cow))
+top_inc2 <- subset(top_inc2, !is.na(top_inc2$cow))
+
+# Take the mean from 2010-2019 to account for missing data
+top_inc1 <- top_inc1[,c(13:22,23)]
+top_inc2 <- top_inc2[,c(3:12,23)]
+top_inc1$top1 <- rowMeans(top_inc1[,1:10], na.rm = T)
+top_inc2$top10 <- rowMeans(top_inc2[,1:10], na.rm = T)
+top_inc1 <- select(top_inc1, cow, top1)
+top_inc2 <- select(top_inc2, cow, top10)
+# china appears multiple times
+top_inc1 <- aggregate(top_inc1, by = list(top_inc1$cow), FUN = mean, na.rm = T)
+top_inc2 <- aggregate(top_inc2, by = list(top_inc2$cow), FUN = mean, na.rm = T)
+rm(top_inc)
+
+```
+
+
+```{r clean_solt, warning = F, message = F}
+rm(swiid)
+swiid_summary$cow <- countrycode(swiid_summary$country, "country.name", "cown")
+
+#some countries do not have data since 2016, take most recent available year
+swiid_summary <- swiid_summary %>%
+  mutate(year = ifelse(country == "Algeria" & year == 2011 | country == "Brunei" & year == 1981 | country == "Bosnia and Herzegovina" & year == 2015 | country == "Grenada" & year == 2008 | country == "Guatemala" & year == 2014 | country == "Iceland" & year == 2015 | country == "India" & year == 2012 | country == "Japan" & year == 2015 | country == "Morocco" & year == 2014 | country == "Pakistan" & year == 2015 | country == "Philippines" & year == 2015 | country == "South Africa" & year == 2015 | country == "United Arab Emirates" & year == 2008, 2016, year))
+
+# trim S. Africa
+swiid_summary$gini_disp <- ifelse(swiid_summary$country == "South Africa" & swiid_summary$year == 2016, 55, swiid_summary$gini_disp)
+
+
+swiid_summary <- subset(swiid_summary, year >= 2016)
+swiid_summary <- select(swiid_summary, cow, gini_disp)
+swiid_summary <- aggregate(swiid_summary, by = list(swiid_summary$cow), FUN = mean, na.rm = T)
+gini_disp <- select(swiid_summary, cow, gini_disp)
+
+rm(swiid_summary)
+
+
+
+```
+
+```{r merge_clean}
+
+df <- left_join(finaldf_Ca, gov_resp, by = "cow")
+df <- left_join(df, gini_disp, by = "cow")
+df <- left_join(df, issp16dfa, by = "cow")
+df <- left_join(df, top_inc1, by = "cow")
+df <- left_join(df, top_inc2, by = "cow")
+
+# fix Argentina and Indonesia (last top1 observation was 2004)
+df$top1 <- ifelse(df$cow == 160, .168, ifelse(df$cow == 850, .085, df$top1))
+
+# take Government Response to pandemic as residuals after predicting what the response should be given the severity of the local outbreak
+
+mR <- lm(gov_resp ~ days_since_peak, conf_delta, data = df)
+
+```
+
+
+```{r corrs}
+cor <- select(df, concern_self, days_since_peak, conf_delta, gov_resp, intervention, gini_disp, top1, socpolicy, gdp)
+f1 <- cor(cor, use = "pairwise.complete.obs")
+
+
+cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "Days Since Peak", "New Cases Past Week","Severity of Gov Response", "Timing of Gov Response", "Gini, disposable", "Welfare State", "GDP, per capita"))
+
+kable_styling(cor1)
+```
+
+
+
+
+```{r plot1}
+ggplot(df, aes(y=gov_resp, x=gov_intv)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("General Public Preferences for Government Intervention") +
+  ylab("Severity of Government Pandemic Measures") +
+  theme_classic()
+  
+```
+
+```{r plot2}
+ggplot(df, aes(y=gov_resp, x=gov_ineq)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Public Preferences for Government Redistribution") +
+  ylab("Severity of Government Pandemic Measures") +
+  theme_classic()
+  
+```
+```{r plot3}
+ggplot(df, aes(y=gov_resp, x=gini_disp)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Gini, post-tax and transfer") +
+  ylab("Severity of Government Pandemic Measures") +
+  theme_classic()
+  
+```
+
+
+
+
+```{r plot4}
+ggplot(df, aes(y=concern_self, x=gov_resp)) +
+  geom_point() +
+  geom_text(aes(label=iso), vjust = 1.5) +
+  geom_smooth(method=lm, se=FALSE) +
+  xlab("Severity of Government Pandemic Measures") +
+  ylab("Risk Perceptions") +
+  theme_classic()
+  
+```
+
+
+```{r adjusted_risk}
+
+# adjust risk for severity of outbreak
+m1 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp, data = df)
+
+# predicted values
+df$m1p <- predict.lm(m1, df)
+
+# residuals
+df$m1r <- df$concern_self - df$m1p 
+
+# plot fitted v observed
+ggplot(df, aes(y=m1p, x=concern_self)) +
+  geom_point() +
+  geom_text_repel(aes(label=iso), vjust = 1.5) +
+  geom_abline(slope=1) +
+
+  xlab("Observed Risk Perceptions") +
+  ylab("Predicted Risk Perceptions") +
+  theme_classic()
+
+#   geom_smooth(method=lm, se=FALSE) +
+
+mx <- lm(m1r ~ gini_disp, data = df)
+summary(mx)
+  
+```
+
+
+```{r plot6}
+
+
+ggplot(df, aes(y=m1r, x=gini_disp)) +
+  geom_smooth(method=lm, se=FALSE) +
+  geom_text_repel(aes(label=iso), size = 3) +
+  xlab("Income Inequality, post-tax and transfer gini") +
+  ylab("Risk Perceptions, M1 residuals") +
+  theme_classic()
+
+#   
+```
+```{r plot7}
+
+
+ggplot(df, aes(y=m1r, x=socpolicy)) +
+  geom_smooth(method=lm, se=FALSE) +
+  geom_label_repel(aes(label=iso), size = 2.5) +
+  xlab("Welfare State, spending and coverage") +
+  ylab("Risk Perceptions, M1 residuals") +
+  theme_classic()
+
+#   
+```
+
+```{r plot8}
+
+
+ggplot(df, aes(y=m1r, x=gdp)) +
+  geom_smooth(method=lm, se=FALSE) +
+  geom_label_repel(aes(label=iso), size = 2.5) +
+  xlab("GDP, per capita parity") +
+  ylab("Risk Perceptions, M1 residuals") +
+  theme_classic()
+
+#   
+```
+```{r plot9}
+mid <- 34
+# trim gini to get better color display
+df$gini_color <- ifelse(df$gini_disp<45, df$gini_disp, 45)
+
+ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
+  geom_point() +
+  geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
+  geom_text_repel(aes(label = iso), size = 2.8) +
+  scale_color_gradient2(midpoint=mid, low="blue", mid="gray55", high="red", space="Lab") +
+  labs(x= "New Case Rate, past week", y = "Coronavirus Concerns", color = "Income Inequality\n(Gini, post\ntax & transfer)") +
+      theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.title = element_text(size = 10))
+```
+
+
+```{r reg}
+
+# m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
+
+m2 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
+
+m3 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + socpolicy, data = df)
+
+m4 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = df)
+
+m5 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp + socpolicy + gdp, data = df)
+
+tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5","M6"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+```
+
+```{r std_reg}
+tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+```
+
