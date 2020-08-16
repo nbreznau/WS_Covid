@@ -643,14 +643,24 @@ cis_b <- subset(cis, date < as.Date('2020-05-01'))
 cis_a <- aggregate(cis_b, by=list(cis_b$cow),
   FUN=mean, na.rm=T)
 
+# added 16-Aug-20, calculate SE for study_two
+cis_asd <- aggregate(cis_b, by=list(cis_b$cow),
+  FUN=sd, na.rm=T)
+cis_asd <- select(cis_asd, Group.1, concern_self)
+colnames(cis_asd) <- c("cow", "concern_self_sd")
+
+cis_a <- left_join(cis_a, cis_asd, by = "cow")
+
 cis_b$cases <- ifelse(cis_b$cases<20, NA, cis_b$cases)
 cis_a$cases <- ifelse(cis_a$cases<20, NA, cis_a$cases)
 cis_a <- completeFun(cis_a, "cases")
 
-cis_a <- select(cis_a, cow, concern_self, concern_society, dead, dead_l5, conf, conf_l5, conf_delta, dead_lead, dead_1st_date, curve_max, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, Corona_concerns_4, Corona_concerns_5)
+cis_a$concern_self_se <- cis_a$concern_self_sd/sqrt(cis_a$cases)
+
+cis_a <- select(cis_a, cow, concern_self, concern_society, dead, dead_l5, conf, conf_l5, conf_delta, dead_lead, dead_1st_date, curve_max, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, Corona_concerns_4, Corona_concerns_5, concern_self_se)
 
 
-colnames(cis_a) <- c("cow","concern_self","concern_society", "dead", "dead_lag5", "conf", "conf_lag5", "conf_delta","dead_lead", "dead_1st_date", "curve_max","Corona1", "Corona2", "Corona3", "Corona4", "Corona5")
+colnames(cis_a) <- c("cow","concern_self","concern_society", "dead", "dead_lag5", "conf", "conf_lag5", "conf_delta","dead_lead", "dead_1st_date", "curve_max","Corona1", "Corona2", "Corona3", "Corona4", "Corona5", "concern_self_se")
 # add iso
 
 
