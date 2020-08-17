@@ -32,7 +32,7 @@ completeFun <- function(data, desiredCols) {
 
 # need pacman package installed to run this
 # install.packages("pacman")
-pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kable","kableExtra","ggrepel","stringi","margins")
+pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kable","kableExtra","ggrepel","stringi","margins", "ragg")
 
 ```
 
@@ -48,6 +48,12 @@ Figure 1 and the correlation tables are produced in covid_i_stress.Rmd.
 ```{r round2load, warning=F, message=F, echo=T}
 load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
 
+```
+
+### Figure 1. Outbreak Severity by Country and Day
+
+```{r fi1_import}
+knitr::include_graphics(wdir("COVIDiSTRESS/Fig1.png"))
 ```
 
 
@@ -108,7 +114,7 @@ ggplot(data=finaldf_C, aes(x=days_since_peak, y=concern_society, color = conf_de
 
 
 ```{r fig2, warning = F, message=F, echo=T}
-png(file = wdir("Fig2.png"), width = 700)
+agg_png(file = wdir("COVIDiSTRESS/Fig2.png"), width = 1000, height = 700, res = 144)
 mid <- 34
 ggplot(data=finaldf_C, aes(x=socpolicy, y=concern_self, color=days_since_peak)) +
   geom_point() +
@@ -123,6 +129,7 @@ ggplot(data=finaldf_C, aes(x=socpolicy, y=concern_self, color=days_since_peak)) 
         axis.title = element_text(size = 14),
         legend.text = element_text(size = 14))
 dev.off()
+knitr::include_graphics(wdir("COVIDiSTRESS/Fig2.png"))
 
 ```
 ### Fig 3. Welfare State Strength and Covid Concern Society by Country
@@ -229,12 +236,12 @@ tab_model(m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05
 
 ### Fig 4. Margins Plot for Table 2 and 3
 
-```{r Fig4marg, warning = F}
+```{r Fig4marg, warning = F, message = F}
 
 
 m5plot <- plot_model(m5, type = "pred", terms = c("socpolicy", "intervention [10,-30]")) 
 
-png(file = wdir("Fig4.png"), width = 600)
+agg_png(file = wdir("COVIDiSTRESS/Fig4.png"), width = 1000, height = 700, res = 144)
 m5plot + labs(title = "", x = "Welfare State Strength", y = "Coronavirus Concerns, Personal") +
   scale_color_manual(name="Government\nIntervention",
                        labels=c("WEAK \n30-days late","STRONG \n5-days advance"),
@@ -246,6 +253,7 @@ m5plot + labs(title = "", x = "Welfare State Strength", y = "Coronavirus Concern
           legend.title = element_text(size = 14),
           axis.title = element_text(size = 14))
 dev.off()
+knitr::include_graphics(wdir("COVIDiSTRESS/Fig4.png"))
 
 ```
 
