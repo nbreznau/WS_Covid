@@ -1,10 +1,15 @@
 ---
-title: 'Institutionalized Inequality and Risk Perceptions: Government Intervention
-  and Social Welfare during the Novel Coronavirus Pandemic'
+title: "Social Inequality Magnifies the Perception of Risk in a Pandemic: Technical Appendix"
+author: "Nate Breznau"
+date: "8/17/2020"
 output:
-  html_document:
-    df_print: paged
+  html_document: default
 ---
+
+#### Nate Breznau
+#### Hung H.V. Nguyen
+#### Lisa Heukamp
+#### *University of Bremen
 
 This is a follow up study of 
 
@@ -12,7 +17,7 @@ Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Corona
 
 The following files are necessary to run this code
 
-cis2.Rdata                            the data from Breznau (2020)
+cis2.Rdata                            the data from Breznau (2020) https://osf.io/muhdz/
 covid-stringency-index.csv            https://ourworldindata.org/grapher/covid-stringency-index
 WID_Data_14082020-111941.xlsx         https://wid.world/data/
 ZA6900_v2-0-0.dta                     ISSP RoG 2016
@@ -32,14 +37,20 @@ wdir <- function(x){
   paste(wd,x, sep = "/")
 }
 
-
-# need pacman + ragg packages installed to run 
+# need pacman and ragg packages
 # install.packages("pacman")
 # devtools::install_github('r-lib/ragg')
+
 pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl","foreign", "ragg")
 
 ```
 
+### Load data
+
+Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*.
+
+Available at:
+https://osf.io/muhdz/
 
 ```{r load_prep, message = F, warning = F}
 # Breznau 2020
@@ -67,6 +78,7 @@ countries <- as.list(finaldf_Ca$cow)
 
 ```
 
+### Data cleaning
 
 ```{r clean_blavatnik, warning = F, message = F}
 
@@ -191,7 +203,11 @@ kable_styling(cor1)
 
 ```{r plot_case_numbers}
 
-ggplot(df, aes())
+ggplot(df, aes(y = concern_self_se, x = cases)) +
+  geom_point() +
+  xlab("Cases Per Country") +
+  ylab("Standard Error of the Mean") +
+  theme_classic()
 
 # ggplot(df, aes(x = reorder(iso, concern_self), y = concern_self)) + 
 #  geom_bar(stat = "identity") +
@@ -341,7 +357,12 @@ m4 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = df
 
 m5 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp + socpolicy + gdp, data = df)
 
-tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+
+tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("COVIDiSTRESS/Tbl1_Study2.html"))
+
+knitr::include_graphics(wdir("COVIDiSTRESS/Tbl1_Study2.html"))
+
+
 ```
 
 ```{r std_reg}
@@ -352,7 +373,7 @@ tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.0
 ```{r resid_reg}
 m3r <- lm(m1r ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
 
-tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"))
+tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("COVIDiSTRESS/Tbl3_Study2.html"))
 ```
 
 ```{r reg_top1}
@@ -383,7 +404,7 @@ The confidence interval of our regression estimates is based on a sampling distr
 
 There are many countries with small sample sizes (we excluded those with under 20) ranging from 20-50 whereas there are many other countries with over 5,000. This makes for quite an asymmetry in standard error, i.e., the uncertainty associated with each country's mean. Therefore, we bootstrap the estimates by generating random data that follow a normal distribution for each country based on the standard error. Then we run the analysis on each dataset to generate a confidence interval for our estimates that incorporates the within-country standard error of the mean.
 
-```{r robust_sim}
+```{r robust_sim, message = F, warning = F}
 # The standard error takes into account the sample size, so now we create a simulation standard deviation based on the standard error leading to variation in means across 1000 simulations and a normal distribution.
 
 
@@ -433,7 +454,7 @@ rm(pvalues)
 
 ```
 
-```{r robust_sim}
+```{r robust_sim2, message = F, warning = F}
 # Now repeat with a different seed
 
 
@@ -456,7 +477,7 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg, message = F, warning = F}
+```{r robust_reg2, message = F, warning = F}
 for (i in 1:1000){
   name <- paste0("lm",i)
   assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
@@ -495,15 +516,22 @@ ggplot(results_df, aes(x = p, y = coeff, color = group)) +
          geom_point()
 ```
 
+
+
+
 ```{r densityplot}
 
 agg_png(file = wdir("COVIDiSTRESS/Fig4_covid.png"), width = 1000, height = 600, res = 144)
 ggplot(results_df, aes(x=coeff)) + 
   geom_density() +
   xlab("Effect of Disposable Income Inequality on Risk Perceptions") +
-  labs(title = "Figure 4. Robustness Check of Social Inequality Effect", subtitle = "Re-Analysis of 2,000 datasets simulated with s.e. of the mean by country", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005. Country case numbers range from ") +
+  labs(title = "Figure 4. Robustness Check of Social Inequality Effect", subtitle = "Re-Analysis of 2,000 datasets simulated with s.e. of the mean by country", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005.\nCountry case numbers range from 20 to 21,087; mean case numbers 1,452. ") +
   geom_vline(xintercept = 0.02569, linetype="dashed", 
+                color = "red", size=1) +
+  geom_text(x=0.023, y=0, label="Robust Mean Coefficient", color = "red", size = 3) +
+    geom_vline(xintercept = 0.03, linetype="dashed", 
                 color = "blue", size=1) +
+    geom_text(x=0.0326, y=50, label="Observed Coefficient (M2)", color = "blue", size = 3) +
   theme_classic() +
       theme(
   plot.title = element_text(),
