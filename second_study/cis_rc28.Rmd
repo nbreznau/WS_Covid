@@ -427,7 +427,7 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg, message = F, warning = F}
+```{r robust_reg, message = F, warning = F, results='hide'}
 for (i in 1:1000){
   name <- paste0("lm",i)
   assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
@@ -477,7 +477,7 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg2, message = F, warning = F}
+```{r robust_reg2, message = F, warning = F, results='hide'}
 for (i in 1:1000){
   name <- paste0("lm",i)
   assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
