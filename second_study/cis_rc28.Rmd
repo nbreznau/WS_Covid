@@ -171,6 +171,10 @@ summary(mR)
 df$mR <- predict.lm(mR, df)
 df$gov_resp_resid <- df$gov_resp - df$mR
 
+# create SE max and min for error bars
+df$ymin <- df$concern_self - df$concern_self_se
+df$ymax <- df$concern_self + df$concern_self_se
+
 ```
 
 
@@ -183,6 +187,17 @@ cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "Days Since Peak"
 
 kable_styling(cor1)
 ```
+
+
+```{r plot_case_numbers}
+
+ggplot(df, aes())
+
+# ggplot(df, aes(x = reorder(iso, concern_self), y = concern_self)) + 
+#  geom_bar(stat = "identity") +
+#  geom_errorbar(aes(ymin = ymin, ymax = ymax))
+```
+
 
 
 ```{r plot3}
@@ -369,7 +384,7 @@ The confidence interval of our regression estimates is based on a sampling distr
 There are many countries with small sample sizes (we excluded those with under 20) ranging from 20-50 whereas there are many other countries with over 5,000. This makes for quite an asymmetry in standard error, i.e., the uncertainty associated with each country's mean. Therefore, we bootstrap the estimates by generating random data that follow a normal distribution for each country based on the standard error. Then we run the analysis on each dataset to generate a confidence interval for our estimates that incorporates the within-country standard error of the mean.
 
 ```{r robust_sim}
-# The standard error takes into account the sample size, so now we create a simulation standard deviation based on the standard error as if all units had the same sample size of 100, thus introducing the uncertainty inherent in the groups with small numbers of cases. The groups with more than 100 remain very similar and the groups under adopt a higher and higher variance.
+# The standard error takes into account the sample size, so now we create a simulation standard deviation based on the standard error leading to variation in means across 1000 simulations and a normal distribution.
 
 
 
@@ -378,7 +393,7 @@ set.seed(91825)
 colnames(sim_df) <- c("sim_2", "sim_20",  "sim_55",  "sim_70",  "sim_90",  "sim_92",  "sim_94", "sim_100", "sim_130", "sim_135", "sim_140", "sim_155", "sim_160", "sim_200", "sim_205", "sim_210", "sim_211", "sim_212", "sim_220", "sim_225", "sim_230", "sim_235", "sim_255", "sim_290", "sim_305", "sim_310", "sim_316", "sim_317", "sim_325", "sim_338", "sim_339", "sim_343", "sim_344", "sim_346", "sim_349", "sim_350", "sim_352", "sim_355", "sim_360", "sim_365", "sim_366", "sim_367", "sim_368", "sim_369", "sim_372", "sim_375", "sim_380", "sim_385", "sim_390", "sim_395", "sim_560", "sim_600", "sim_615", "sim_640", "sim_651", "sim_666", "sim_696", "sim_700", "sim_703", "sim_710", "sim_713", "sim_732", "sim_740", "sim_750", "sim_770", "sim_771", "sim_816", "sim_820", "sim_830", "sim_835", "sim_840", "sim_850", "sim_900", "sim_920")
 
 for (c in countries){
-  sim_df[paste0("sim_", c)] <- rnorm(1000, mean = finaldf_Ca[finaldf_Ca$cow == c, "concern_self"], sd = (finaldf_Ca[finaldf_Ca$cow == c, "concern_self_se"])*sqrt(100))
+  sim_df[paste0("sim_", c)] <- rnorm(1000, mean = finaldf_Ca[finaldf_Ca$cow == c, "concern_self"], sd = finaldf_Ca[finaldf_Ca$cow == c, "concern_self_se"])
 }
 
 sim_df_wide <- as.data.frame(t(sim_df))
@@ -413,15 +428,91 @@ results_df <- data.frame(matrix(unlist(coefs), nrow=length(coefs), byrow=T))
 results_df[,2] <- data.frame(matrix(unlist(pvalues), nrow=length(pvalues), byrow=T))
 
 colnames(results_df) <- c("coeff","p")
+rm(coefs)
+rm(pvalues)
+
+```
+
+```{r robust_sim}
+# Now repeat with a different seed
+
+
+
+sim_df <- as.data.frame(matrix(nrow = 1000, ncol = 74))
+set.seed(66666)
+colnames(sim_df) <- c("sim_2", "sim_20",  "sim_55",  "sim_70",  "sim_90",  "sim_92",  "sim_94", "sim_100", "sim_130", "sim_135", "sim_140", "sim_155", "sim_160", "sim_200", "sim_205", "sim_210", "sim_211", "sim_212", "sim_220", "sim_225", "sim_230", "sim_235", "sim_255", "sim_290", "sim_305", "sim_310", "sim_316", "sim_317", "sim_325", "sim_338", "sim_339", "sim_343", "sim_344", "sim_346", "sim_349", "sim_350", "sim_352", "sim_355", "sim_360", "sim_365", "sim_366", "sim_367", "sim_368", "sim_369", "sim_372", "sim_375", "sim_380", "sim_385", "sim_390", "sim_395", "sim_560", "sim_600", "sim_615", "sim_640", "sim_651", "sim_666", "sim_696", "sim_700", "sim_703", "sim_710", "sim_713", "sim_732", "sim_740", "sim_750", "sim_770", "sim_771", "sim_816", "sim_820", "sim_830", "sim_835", "sim_840", "sim_850", "sim_900", "sim_920")
+
+for (c in countries){
+  sim_df[paste0("sim_", c)] <- rnorm(1000, mean = finaldf_Ca[finaldf_Ca$cow == c, "concern_self"], sd = finaldf_Ca[finaldf_Ca$cow == c, "concern_self_se"])
+}
+
+sim_df_wide <- as.data.frame(t(sim_df))
+
+sim_df_wide$cow <- finaldf_Ca$cow
+
+finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
+
+
+```
+
+
+```{r robust_reg, message = F, warning = F}
+for (i in 1:1000){
+  name <- paste0("lm",i)
+  assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
+}
+
+# coefficients
+
+model.list <- mget(grep("lm[0-9]+$", ls(),value=T))
+coefs <- lapply(model.list, function(x)coef(x)[5])
+unlist(coefs)
+
+# p-values
+pvalues<- lapply(model.list, function(x) summary(x)$coefficients[5,4])
+unlist(pvalues)
+
+rm(list = ls(pattern = "lm"))
+rm(model.list)
+results_df2 <- data.frame(matrix(unlist(coefs), nrow=length(coefs), byrow=T))
+results_df2[,2] <- data.frame(matrix(unlist(pvalues), nrow=length(pvalues), byrow=T))
+
+colnames(results_df2) <- c("coeff","p")
+rm(coefs)
+rm(pvalues)
 
 ```
 
 ```{r plot_robust}
+results_df <- bind_rows(results_df, results_df2)
 # gen p-value indicator
 
-results_df$group <- ifelse(results_df$p < 0.05, 1, 0)
 
-ggplot(results_df, aes(y = p, x = coeff, color = group)) +
+results_df$group <- ifelse(results_df$p < 0.05, 1, 0)
+results_df$group <- as.factor(results_df$group)
+
+ggplot(results_df, aes(x = p, y = coeff, color = group)) +
          geom_point()
+```
+
+```{r densityplot}
+
+agg_png(file = wdir("COVIDiSTRESS/Fig4_covid.png"), width = 1000, height = 600, res = 144)
+ggplot(results_df, aes(x=coeff)) + 
+  geom_density() +
+  xlab("Effect of Disposable Income Inequality on Risk Perceptions") +
+  labs(title = "Figure 4. Robustness Check of Social Inequality Effect", subtitle = "Re-Analysis of 2,000 datasets simulated with s.e. of the mean by country", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005. Country case numbers range from ") +
+  geom_vline(xintercept = 0.02569, linetype="dashed", 
+                color = "blue", size=1) +
+  theme_classic() +
+      theme(
+  plot.title = element_text(),
+  plot.subtitle = element_text(face = "italic"),
+  plot.caption = element_text(size = 9, color = "grey30", vjust = -1.5),
+  axis.title.x = element_text(vjust = -0.8),
+  axis.title.y = element_blank(),
+  )
+invisible(dev.off())
+knitr::include_graphics(wdir("COVIDiSTRESS/Fig4_covid.png"))
 ```
 
