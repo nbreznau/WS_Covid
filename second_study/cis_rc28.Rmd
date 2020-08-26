@@ -11,19 +11,23 @@ output:
 #### Lisa Heukamp
 #### *University of Bremen
 
-This is a follow up study of 
 
-Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*.
+
+
 
 The following files are necessary to run this code
 
-cis2.Rdata                            the data from Breznau (2020) https://osf.io/muhdz/
-covid-stringency-index.csv            https://ourworldindata.org/grapher/covid-stringency-index
-WID_Data_14082020-111941.xlsx         https://wid.world/data/
-ZA6900_v2-0-0.dta                     ISSP RoG 2016
-swiid8_3.Rda                          Solt Gini data
+* cis2.Rdata - the data from Breznau (2020) https://osf.io/muhdz/
+* covid-stringency-index.csv -            https://ourworldindata.org/grapher/covid-stringency-index
+* WID_Data_14082020-111941.xlsx - https://wid.world/data/
+* swiid8_3.Rda - Solt Gini data
 
-Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly doi: 10.1111/ssqu.12795
+Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly [DOI](https://doi.org/10.1111/ssqu.12795)
+
+
+This is a follow up study of 
+
+Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*. [DOI](https://doi.org/10.1080/14616696.2020.1793215)
 
 
 
@@ -47,11 +51,6 @@ pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc",
 
 ### Load data
 
-Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*.
-
-Available at:
-https://osf.io/muhdz/
-
 ```{r load_prep, message = F, warning = F}
 # Breznau 2020
 load(file = wdir("COVIDiSTRESS/cis2.Rdata"))
@@ -73,12 +72,16 @@ top_inc <- read_xlsx(wdir("COVIDiSTRESS/WID_Data_14082020-111941.xlsx"))
 # Solt Gini
 load(wdir("COVIDiSTRESS/swiid8_3.Rda"))
 
-# countries to keep
+# countries to keep (at least 20 cases)
 countries <- as.list(finaldf_Ca$cow)
 
 ```
 
 ### Data cleaning
+
+#### Blavatnik Government Data
+
+A severity scale from researchers at Oxford University. We take the severity of 'lockdown' measures by March 15th to allow for a lag for individuals to become aware of the measures and possibly see their impact. Naumann et al ([2020](https://www.uni-mannheim.de/media/Einrichtungen/gip/Corona_Studie/Schwerpunktbericht_Angstempfinden_Mannheimer_Corona_Studie.pdf)) showed that over time, the 'panic' subsides among the public after strong measures are taken. 
 
 ```{r clean_blavatnik, warning = F, message = F}
 
@@ -116,6 +119,9 @@ gov_resp$gov_resp = scale(gov_resp$gov_resp)
 
 ```
 
+#### Income Concentration
+
+As a robustness check we include the top 1% income concentration. We also leave the top 10% concentration in the data here although it has more missing values.
 
 ```{r clean_ineq, message = F, warning = F}
 top_inc <- top_inc %>%
@@ -140,6 +146,9 @@ rm(top_inc)
 
 ```
 
+#### Solt Gini
+
+The Solt data include multiple measures of the Gini for many countries. We take the average score provided by Solt.
 
 ```{r clean_solt, warning = F, message = F}
 rm(swiid)
@@ -159,10 +168,10 @@ swiid_summary <- aggregate(swiid_summary, by = list(swiid_summary$cow), FUN = me
 gini_disp <- select(swiid_summary, cow, gini_disp)
 
 rm(swiid_summary)
-
-
-
 ```
+
+
+#### Merge Data
 
 ```{r merge_clean}
 
@@ -174,32 +183,81 @@ df <- left_join(df, top_inc2, by = "cow")
 # fix Argentina and Indonesia (last top1 observation was 2004)
 df$top1 <- ifelse(df$cow == 160, .168, ifelse(df$cow == 850, .085, df$top1))
 
-# take Government Response to pandemic as residuals after predicting what the response should be given the severity of the local outbreak
+```
 
-mR <- lm(gov_resp ~  intervention + dead, data = df)
-summary(mR)
+### Statistics
 
+#### Descriptives
 
-df$mR <- predict.lm(mR, df)
-df$gov_resp_resid <- df$gov_resp - df$mR
+```{r descriptives}
+cor <- select(df, concern_self, concern_self_se, days_since_peak, conf_delta, gov_resp, gini_disp, top1, socpolicy, gdp)
 
-# create SE max and min for error bars
-df$ymin <- df$concern_self - df$concern_self_se
-df$ymax <- df$concern_self + df$concern_self_se
+corm <- cor %>%
+  mutate(concern_selfsd = sd(concern_self, na.rm = T),
+         concern_self_sesd = sd(concern_self_se, na.rm = T),
+         days_since_peaksd = sd(days_since_peak, na.rm = T),
+         conf_deltasd = sd(conf_delta, na.rm = T),
+         gov_respsd = sd(gov_resp, na.rm = T),
+         gini_dispsd = sd(gini_disp, na.rm = T),
+         top1sd = sd(top1, na.rm = T),
+         socpolicysd = sd(socpolicy, na.rm = T),
+         gdpsd = sd(gdp, na.rm = T),concern_self_min = min(concern_self, na.rm = T),
+         concern_self_se_min = min(concern_self_se, na.rm = T),
+         days_since_peak_min = min(days_since_peak, na.rm = T),
+         conf_delta_min = min(conf_delta, na.rm = T),
+         gov_resp_min = min(gov_resp, na.rm = T),
+         gini_disp_min = min(gini_disp, na.rm = T),
+         top1_min = min(top1, na.rm = T),
+         socpolicy_min = min(socpolicy, na.rm = T),
+         gdp_min = min(gdp, na.rm = T),
+         concern_self_max = max(concern_self, na.rm = T),
+         concern_self_se_max = max(concern_self_se, na.rm = T),
+         days_since_peak_max = max(days_since_peak, na.rm = T),
+         conf_delta_max = max(conf_delta, na.rm = T),
+         gov_resp_max = max(gov_resp, na.rm = T),
+         gini_disp_max = max(gini_disp, na.rm = T),
+         top1_max = max(top1, na.rm = T),
+         socpolicy_max = max(socpolicy, na.rm = T),
+         gdp_max = max(gdp, na.rm = T),
+         n = ifelse(!is.na(top1), 74, 57),
+         concern_self = mean(concern_self, na.rm = T),
+         concern_self_se = mean(concern_self_se, na.rm = T),
+         days_since_peak = mean(days_since_peak, na.rm = T),
+         conf_delta = mean(conf_delta, na.rm = T),
+         gov_resp = mean(gov_resp, na.rm = T),
+         gini_disp = mean(gini_disp, na.rm = T),
+         top1 = mean(top1, na.rm = T),
+         socpolicy = mean(socpolicy, na.rm = T),
+         gdp = mean(gdp, na.rm = T))
+
+cor2 <- round(corm[1,1:9], 2)
+cor2[2,] <- round(corm[1,10:18], 2)
+cor2[3,] <- round(corm[1,19:27], 2)
+cor2[4,] <- round(corm[1,28:36], 2)
+cor2[5,1:9] <- 74
+cor2[5,7] <- 57
+
+colnames(cor2) <- c("Risk Perception", "SE of Risk Perception by Country", "Days Since Curve Inflection", "New Cases Past Week","Government Intervention", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita (k)")
+
+cor2 <- as.data.frame(t(cor2))
+
+kable_styling(kable(cor2, col.names = c("Mean", "SD", "Min", "Max", "N")))
 
 ```
 
 
+#### Correlations
+
 ```{r corrs}
-cor <- select(df, concern_self, days_since_peak, conf_delta, gov_resp, gini_disp, top1, socpolicy, gdp)
+
 f1 <- cor(cor, use = "pairwise.complete.obs")
 
 
-cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "Days Since Peak", "New Cases Past Week","Intervention Measures' Severity", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita"))
+cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "SE of Risk Perception by Country", "Days Since Curve Inflection", "New Cases Past Week","Government Intervention", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita"))
 
 kable_styling(cor1)
 ```
-
+#### Additional Fig - Cases per country
 
 ```{r plot_case_numbers}
 
@@ -213,42 +271,9 @@ ggplot(df, aes(y = concern_self_se, x = cases)) +
 #  geom_bar(stat = "identity") +
 #  geom_errorbar(aes(ymin = ymin, ymax = ymax))
 ```
+#### Additional Figs - Residuals
 
-
-
-```{r plot3}
-ggplot(df, aes(y=gov_resp, x=gini_disp)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("Gini, post-tax and transfer") +
-  ylab("Severity of Government Pandemic Measures") +
-  theme_classic()
-  
-```
-
-```{r plot4}
-ggplot(df, aes(y=gov_resp, x=top1)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("Top 1% Income Concentration, pre-tax") +
-  ylab("Severity of Government Pandemic Measures") +
-  theme_classic()
-  
-```
-
-
-```{r plot5}
-ggplot(df, aes(y=concern_self, x=gov_resp)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("Severity of Government Pandemic Measures") +
-  ylab("Risk Perceptions") +
-  theme_classic()
-  
-```
+This visualizes the relationship between observed and predicted values of risk perceptions and the regrression results used for this prediction.
 
 
 ```{r adjusted_risk}
@@ -279,17 +304,18 @@ summary(mx)
   
 ```
 
+#### Figure 2
 
-```{r plot6}
+```{r fig2}
 
 
-agg_png(file = wdir("COVIDiSTRESS/Fig1_covid.png"), width = 1000, height = 600, res = 144)
+agg_png(file = wdir("COVIDiSTRESS/Fig2_2nd.png"), width = 1000, height = 600, res = 144)
 ggplot(df, aes(y=m1r, x=gini_disp)) +
   geom_smooth(method=lm, se=T, size = 0.3, color = "gray30") +
   geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
-  xlab("Income Inequality (post-tax and transfer gini)") +
+  xlab("Disposable Income Inequality") +
   ylab("Risk Perceptions (M1 residuals)") +
-  labs(title = "Figure 2. Pandemic Risk Perceptions and Income Inequality", subtitle = "\'Over\' or \'under\' concern may result from social stratification", caption = "Plotted residuals taken from M1 (see Table 2). Countries above y = 0 have higher risk perceptions than predited \nfrom local severity of the outbreak, whereas those below have lower than predicted risk perceptions. \nIncome inequality explains about 20% of the variation in over and under-concern across countries.") +
+  labs(title = "Figure 2. Pandemic Risk Perceptions and Income Inequality", subtitle = "\'Over\' or \'under\' concern explained by social stratification", caption = "Plotted residuals from M1 (see Table 1). Where y > 0 countires have higher risk perceptions than predicted \nfrom the outbreak severity and government response, whereas y < 0 are lower than predicted. \nIncome inequality explains about 20% of the variation in over and under-concern across countries.") +
   theme_classic() + 
   theme(
   plot.title = element_text(),
@@ -299,34 +325,12 @@ ggplot(df, aes(y=m1r, x=gini_disp)) +
   axis.title.y = element_text(vjust = 2),
   )
 invisible(dev.off())
-knitr::include_graphics(wdir("COVIDiSTRESS/Fig1_covid.png"))
+knitr::include_graphics(wdir("COVIDiSTRESS/Fig2_2nd.png"))
 #    
 ```
-```{r plot7}
 
+#### Additional Fig - 3 Way Plot
 
-ggplot(df, aes(y=m1r, x=socpolicy)) +
-  geom_smooth(method=lm, se=FALSE) +
-  geom_label_repel(aes(label=iso), size = 2.5) +
-  xlab("Welfare State, spending and coverage") +
-  ylab("Risk Perceptions, M1 residuals") +
-  theme_classic()
-
-#   
-```
-
-```{r plot8}
-
-
-ggplot(df, aes(y=m1r, x=gdp)) +
-  geom_smooth(method=lm, se=FALSE) +
-  geom_label_repel(aes(label=iso), size = 2.5) +
-  xlab("GDP, per capita parity") +
-  ylab("Risk Perceptions, M1 residuals") +
-  theme_classic()
-
-#   
-```
 ```{r plot9}
 mid <- 34
 # trim gini to get better color display
@@ -337,13 +341,16 @@ ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
   geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
   geom_text_repel(aes(label = iso), size = 2.8) +
   scale_color_gradient2(midpoint=mid, low="blue", mid="gray55", high="red", space="Lab") +
-  labs(x= "New Case Rate, past week", y = "Coronavirus Concerns", color = "Income Inequality\n(Gini, post\ntax & transfer)") +
+  labs(x= "New Case Rate, past week", y = "Risk Perceptions", color = "Income Inequality\n(Gini, post\ntax & transfer)") +
       theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         legend.title = element_text(size = 10))
 ```
 
+### Main Analyses
+
+#### Table 1. M1 through M5
 
 ```{r reg_gini}
 
@@ -365,16 +372,24 @@ knitr::include_graphics(wdir("COVIDiSTRESS/Tbl1_Study2.html"))
 
 ```
 
+#### Standardized Coefficients for Table 1
+
 ```{r std_reg}
 tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
 
+#### Additional Table - The Regression behind Fig 2 (formatted)
 
 ```{r resid_reg}
 m3r <- lm(m1r ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
 
 tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("COVIDiSTRESS/Tbl3_Study2.html"))
 ```
+
+### Robustness Analysis
+
+
+#### Additional Table - Top 1% instead of Gini
 
 ```{r reg_top1}
 # create dataset with top1 data cases only
@@ -394,11 +409,13 @@ m5t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + top1 + socpol
 tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
+#### Additional Table - Standardized Results for above
+
 ```{r std_reg_top1}
 tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
 
-### Robustness Analysis
+#### Robustness of Coefficient to Sampling Variation in Country-Means
 
 The confidence interval of our regression estimates is based on a sampling distribution across countries, but we have a potentially large source of uncertainty within countries due to the use of an online survey and some very small samples. The online survey problem cannot be solved directly through bootstrapping, but we can asses the robustness of our estimates using the within-country uncertainty. 
 
@@ -437,11 +454,11 @@ for (i in 1:1000){
 
 model.list <- mget(grep("lm[0-9]+$", ls(),value=T))
 coefs <- lapply(model.list, function(x)coef(x)[5])
-unlist(coefs)
+
 
 # p-values
 pvalues<- lapply(model.list, function(x) summary(x)$coefficients[5,4])
-unlist(pvalues)
+
 
 rm(list = ls(pattern = "lm"))
 rm(model.list)
@@ -487,11 +504,11 @@ for (i in 1:1000){
 
 model.list <- mget(grep("lm[0-9]+$", ls(),value=T))
 coefs <- lapply(model.list, function(x)coef(x)[5])
-unlist(coefs)
+
 
 # p-values
 pvalues<- lapply(model.list, function(x) summary(x)$coefficients[5,4])
-unlist(pvalues)
+
 
 rm(list = ls(pattern = "lm"))
 rm(model.list)
@@ -517,7 +534,7 @@ ggplot(results_df, aes(x = p, y = coeff, color = group)) +
 ```
 
 
-
+### Figure 3
 
 ```{r densityplot}
 
@@ -525,7 +542,7 @@ agg_png(file = wdir("COVIDiSTRESS/Fig4_covid.png"), width = 1000, height = 600, 
 ggplot(results_df, aes(x=coeff)) + 
   geom_density() +
   xlab("Effect of Disposable Income Inequality on Risk Perceptions") +
-  labs(title = "Figure 4. Robustness Check of Social Inequality Effect", subtitle = "Re-Analysis of 2,000 datasets simulated with s.e. of the mean by country", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005.\nCountry case numbers range from 20 to 21,087; mean case numbers 1,452. ") +
+  labs(title = "Figure 3. Robustness of Social Inequality Effect", subtitle = "Re-Analysis of 2,000 datasets simulated with s.e. of the mean by country", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005.\nCountry case numbers range from 20 to 21,087; mean case numbers 1,452. ") +
   geom_vline(xintercept = 0.02569, linetype="dashed", 
                 color = "red", size=1) +
   geom_text(x=0.023, y=0, label="Robust Income Inequality Coefficient", color = "red", size = 3) +
