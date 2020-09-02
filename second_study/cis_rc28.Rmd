@@ -1,7 +1,5 @@
 ---
-title: "Social Inequality Magnifies the Perception of Risk in a Pandemic: Technical Appendix"
-author: "Nate Breznau"
-date: "8/17/2020"
+title: "Technical Appendix: Social Inequality and Risk Perceptions During a Pandemic"
 output:
   html_document: default
 ---
@@ -13,14 +11,12 @@ output:
 
 
 
-
-
 The following files are necessary to run this code
 
-* cis2.Rdata - the data from Breznau (2020) https://osf.io/muhdz/
-* covid-stringency-index.csv -            https://ourworldindata.org/grapher/covid-stringency-index
-* WID_Data_14082020-111941.xlsx - https://wid.world/data/
-* swiid8_3.Rda - Solt Gini data
+* *cis2.Rdata* - the data from Breznau (2020) https://osf.io/muhdz/
+* *covid-stringency-index.csv* -            https://ourworldindata.org/grapher/covid-stringency-index
+* *WID_Data_14082020-111941.xlsx* - https://wid.world/data/
+* *swiid8_3.Rda* - Solt Gini data
 
 Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly [DOI](https://doi.org/10.1111/ssqu.12795)
 
@@ -365,17 +361,14 @@ m4 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = df
 m5 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp + socpolicy + gdp, data = df)
 
 
-tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("COVIDiSTRESS/Tbl1_Study2.html"))
-
-knitr::include_graphics(wdir("COVIDiSTRESS/Tbl1_Study2.html"))
-
+tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("COVIDiSTRESS/Tbl1_Study2.html"))
 
 ```
 
 #### Standardized Coefficients for Table 1
 
 ```{r std_reg}
-tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 #### Additional Table - The Regression behind Fig 2 (formatted)
@@ -383,7 +376,7 @@ tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.0
 ```{r resid_reg}
 m3r <- lm(m1r ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
 
-tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("COVIDiSTRESS/Tbl3_Study2.html"))
+tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M2_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("COVIDiSTRESS/Tbl3_Study2.html"))
 ```
 
 ### Robustness Analysis
@@ -406,13 +399,13 @@ m4t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = d
 
 m5t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + top1 + socpolicy + gdp, data = dft)
 
-tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 #### Additional Table - Standardized Results for above
 
 ```{r std_reg_top1}
-tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 #### Robustness of Coefficient to Sampling Variation in Country-Means
@@ -444,7 +437,7 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg, message = F, warning = F, results='hide'}
+```{r robust_reg_a, message = F, warning = F, results='hide'}
 for (i in 1:1000){
   name <- paste0("lm",i)
   assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
@@ -458,8 +451,17 @@ coefs <- lapply(model.list, function(x)coef(x)[5])
 
 # p-values
 pvalues<- lapply(model.list, function(x) summary(x)$coefficients[5,4])
+```
 
+Approximate beta coefficient
 
+```{r betasiml, include = F}
+tab_model(lm113, show.std = T)
+
+# The average coefficient is 0.026 and this is a standardized effect of 0.20
+```
+
+```{r robust_reg_b, message = F, warning = F, results='hide'}
 rm(list = ls(pattern = "lm"))
 rm(model.list)
 results_df <- data.frame(matrix(unlist(coefs), nrow=length(coefs), byrow=T))
@@ -542,13 +544,13 @@ agg_png(file = wdir("COVIDiSTRESS/Fig4_covid.png"), width = 1000, height = 600, 
 ggplot(results_df, aes(x=coeff)) + 
   geom_density() +
   xlab("Effect of Disposable Income Inequality on Risk Perceptions") +
-  labs(title = "Figure 3. Robustness of Social Inequality Effect", subtitle = "Re-Analysis of 2,000 datasets simulated with s.e. of the mean by country", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005.\nCountry case numbers range from 20 to 21,087; mean case numbers 1,452. ") +
+  labs(title = "Figure 3. Robustness of Social Inequality Effect", subtitle = "Analysis of 2,000 simulated risk perception means \nusing the within-country standard error", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005.\nCountry case numbers range from 20 to 21,087; mean case numbers 1,452. ") +
   geom_vline(xintercept = 0.02569, linetype="dashed", 
                 color = "red", size=1) +
-  geom_text(x=0.023, y=0, label="Robust Income Inequality Coefficient", color = "red", size = 3) +
+  geom_text(x=0.023, y=10, label="Robust Coefficient \n(average)\n beta = 0.20", color = "red", size = 3) +
     geom_vline(xintercept = 0.03, linetype="dashed", 
                 color = "blue", size=1) +
-    geom_text(x=0.0326, y=50, label="Observed Coefficient (from M2)", color = "blue", size = 3) +
+    geom_text(x=0.0326, y=50, label="Observed Coefficient \n(from M2) \nbeta = 0.50", color = "blue", size = 3) +
   theme_classic() +
       theme(
   plot.title = element_text(),
@@ -560,6 +562,7 @@ ggplot(results_df, aes(x=coeff)) +
 invisible(dev.off())
 knitr::include_graphics(wdir("COVIDiSTRESS/Fig4_covid.png"))
 ```
+
 
 
 ```{r savepoint}
