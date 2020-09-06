@@ -563,7 +563,11 @@ deaths_longC <- subset(deaths_long, cow %in% use_countries)
 deaths_longC$Country <- countrycode(deaths_longC$cow, "cown", "iso3c")
 deaths_longC$Country <- ifelse(deaths_longC$cow ==  347, "KOS", deaths_longC$Country)
 
-# Using countries
+
+# Using countries (study two)
+deaths_longCa <- deaths_longC
+
+# Using countries (study one)
 deaths_longC <- subset(deaths_longC, Country!= "MKD" & Country!= "BIH" & Country!= "HRV" & Country!="SVN")
 
 # log deaths
@@ -575,14 +579,14 @@ deaths_longC$dead_lead_log <- deaths_longC$dead_lead_log*deaths_longC$dead_lead_
 # create a label map so they do not overlap
 deaths_longCL <- subset(deaths_longC, date == as.Date("2020-05-31"))
 deaths_longCL <- deaths_longCL %>%
-  mutate(date = ifelse(Country == "DEU" | Country == "RUS" | Country == "TUR" | Country == "ECU" | Country == "COL" | Country == "ZAF" | Country == "PRT" | Country == "BGD" | Country == "CHE" | Country == "UKR" | Country == "JPN" | Country == "DNK" | Country == "AFG" | Country == "CZE" | Country == "ISR" | Country == "KOR" | Country == "MAR" | Country == "GRC" | Country == "LUX" | Country == "HRV" | Country == "LTU" | Country == "ALB" | Country == "KGZ" | Country == "SVK" | Country == "NZL" | Country == "GEO" | Country == "ISL" | Country == "VNM", "2020-06-06", "2020-06-01"),
+  mutate(date = ifelse(Country == "DEU" | Country == "RUS" | Country == "TUR" | Country == "ECU" | Country == "COL" | Country == "ZAF" | Country == "PRT" | Country == "BGD" | Country == "CHE" | Country == "UKR" | Country == "JPN" | Country == "DNK" | Country == "AFG" | Country == "CZE" | Country == "ISR" | Country == "KOR" | Country == "MAR" | Country == "GRC" | Country == "LUX" | Country == "HRV" | Country == "LTU" | Country == "ALB" | Country == "KGZ" | Country == "SVK" | Country == "NZL" | Country == "GEO" | Country == "ISL" | Country == "VNM" | Country == "TWN", "2020-06-06", "2020-06-01"),
          dead_lead_log = ifelse(Country == "CHE", 59.1, dead_lead_log),
          dead_lead_log = ifelse(Country == "DNK", 41.8, dead_lead_log),
          dead_lead_log = ifelse(Country == "UKR", 48.8, dead_lead_log),
          dead_lead_log = ifelse(Country == "CZE", 34.5, dead_lead_log),
          dead_lead_log = ifelse(Country == "KOR", 30.6, dead_lead_log),
          dead_lead_log = ifelse(Country == "MYS", 24.2, dead_lead_log),
-         dead_lead_log = ifelse(Country == "AUS", 20.3, dead_lead_log),
+         dead_lead_log = ifelse(Country == "AUS", 21.8, dead_lead_log),
          dead_lead_log = ifelse(Country == "LUX", 23.8, dead_lead_log),
          dead_lead_log = ifelse(Country == "FIN", 34.5, dead_lead_log),
          dead_lead_log = ifelse(Country == "KOS", 14, dead_lead_log),
@@ -593,7 +597,18 @@ deaths_longCL <- deaths_longCL %>%
          dead_lead_log = ifelse(Country == "NZL", 9, dead_lead_log),
          dead_lead_log = ifelse(Country == "SVK", 10.5, dead_lead_log),
          dead_lead_log = ifelse(Country == "MEX", 99, dead_lead_log),
-         dead_lead_log = ifelse(Country == "ESP", 103.8, dead_lead_log))
+         dead_lead_log = ifelse(Country == "ESP", 103.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "CRI", 7.35, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SLV", 5.78, dead_lead_log),
+         dead_lead_log = ifelse(Country == "BRN", 2.6, dead_lead_log),
+         dead_lead_log = ifelse(Country == "TWN", 3, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MLT", 4.16, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SWE", 73.2, dead_lead_log),
+         dead_lead_log = ifelse(Country == "ZAF", 55.5, dead_lead_log),
+          dead_lead_log = ifelse(Country == "ROU", 53.4, dead_lead_log),
+         dead_lead_log = ifelse(Country == "ISL", 5.15, dead_lead_log),
+         dead_lead_log = ifelse(Country == "CYP", 8.95, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SVK", 10.8, dead_lead_log))
 
 agg_png(file = wdir("COVIDiSTRESS/Fig1.png"), width = 1200, height = 1020,  res = 144)
 ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
@@ -626,19 +641,12 @@ ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Cou
 dev.off()
 knitr::include_graphics(wdir("COVIDiSTRESS/Fig1.png"))
 
-# 30 = 250
-# 55 = 2,000
-# 80 = 8,000
-# 105 = 28,000
-# 130 = 120,000
-
-```
-
-```{r extrafig1, include = F}
-agg_png(file = wdir("COVIDiSTRESS/Fig1_free.png"), width = 1200, height = 1020,  res = 144)
-ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
+# this is a version for study 2
+fig1_2 <- ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
     geom_line() +
-  labs(x= "", y = "Outbreak Severity (log deaths, 18 day lead)") +
+  labs(x= "", y = "Outbreak Severity (18 day lead of COVID-19 deaths)") +
+  geom_segment(aes(x = as.Date("2020-03-27"), y = 1, xend = as.Date("2020-03-27"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
+  geom_segment(aes(x = as.Date("2020-04-30"), y = 1, xend = as.Date("2020-04-30"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
   annotate("text", x= as.Date("2020-01-21"), y= 5, 
            label="5", size=4.5, color = "gray20") +
   annotate("text", x= as.Date("2020-01-21"), y= 30, 
@@ -651,6 +659,7 @@ ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Cou
            label="30k", size=4.5, color = "gray20") +
   annotate("text", x= as.Date("2020-01-21"), y= 130, 
            label="120k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-04-13"), y=137, label="survey time-frame", size = 4, color="black") +
   scale_x_date(date_breaks = "2 weeks" , date_labels = "%d-%b") +
   geom_text(data = deaths_longCL, aes(label = Country, colour = Country, x = as.Date(date), y = dead_lead_log, hjust = -.1), size = 2.62) +
   theme(legend.position = "none",
@@ -660,8 +669,17 @@ ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Cou
         axis.title.y = element_text(size=14, vjust=-0.5),
         axis.text.x = element_text(vjust=1, hjust=0.35, color = "gray20", size = 12),
         plot.margin = margin(0, 1, 0, 0, "cm"))
-dev.off()
+
+# log conversion
+# 30 = 250
+# 55 = 2,000
+# 80 = 8,000
+# 105 = 28,000
+# 130 = 120,000
+
 ```
+
+ 
 
 ### Merge Data
 
