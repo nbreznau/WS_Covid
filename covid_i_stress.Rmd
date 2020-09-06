@@ -94,6 +94,8 @@ cisC <- subset(cisC, cases > 20)
 
 use_countries <- as.list(c(2, 20, 55, 70, 90, 92, 94, 100, 130, 135, 140, 155, 160, 200, 205, 210, 211, 212, 220, 225, 230, 235, 255, 290, 305, 310, 316, 317, 325, 338, 339, 350, 352, 355, 360, 365, 366, 367, 368, 369, 372, 375, 380, 385, 390, 395, 560, 600, 615, 640, 651, 666, 696, 700, 703, 710, 713, 732, 740, 750, 770, 771, 816, 820, 830, 835, 840, 850, 900, 920))
 
+use_countriesa <- as.list(c(2, 20, 55, 70, 90, 92, 94, 100, 130, 135, 140, 155, 160, 200, 205, 210, 211, 212, 220, 225, 230, 235, 255, 290, 305, 310, 316, 317, 325, 338, 339, 343, 344, 346, 349, 350, 352, 355, 360, 365, 366, 367, 368, 369, 372, 375, 380, 385, 390, 395, 560, 600, 615, 640, 651, 666, 696, 700, 703, 710, 713, 732, 740, 750, 770, 771, 816, 820, 830, 835, 840, 850, 900, 920))
+
 
 rm(cisC)
 
@@ -556,7 +558,7 @@ deaths_long <- subset(deaths_long, date < as.Date("2020-06-02"))
 deaths_long$dead_lead <- ifelse(deaths_long$date > as.Date("2020-05-31"), NA, deaths_long$dead_lead)
 
 # Using countries
-deaths_longC <- subset(deaths_long, cow %in% use_countries)
+deaths_longC <- subset(deaths_long, cow %in% use_countriesa)
 
 
 # add Country name
@@ -564,11 +566,7 @@ deaths_longC$Country <- countrycode(deaths_longC$cow, "cown", "iso3c")
 deaths_longC$Country <- ifelse(deaths_longC$cow ==  347, "KOS", deaths_longC$Country)
 
 
-# Using countries (study two)
-deaths_longCa <- deaths_longC
 
-# Using countries (study one)
-deaths_longC <- subset(deaths_longC, Country!= "MKD" & Country!= "BIH" & Country!= "HRV" & Country!="SVN")
 
 # log deaths
 deaths_longC$dead_lead_log <- ifelse(deaths_longC$dead_lead > 3,log(deaths_longC$dead_lead),1)
@@ -610,6 +608,15 @@ deaths_longCL <- deaths_longCL %>%
          dead_lead_log = ifelse(Country == "CYP", 8.95, dead_lead_log),
          dead_lead_log = ifelse(Country == "SVK", 10.8, dead_lead_log))
 
+# Using countries (study two)
+deaths_longCa <- deaths_longC
+deaths_longCLa <- deaths_longCL
+
+# Using countries (study one)
+deaths_longC <- subset(deaths_longC, Country!= "MKD" & Country!= "BIH" & Country!= "HRV" & Country!="SVN")
+deaths_longCL <- subset(deaths_longCL, Country!= "MKD" & Country!= "BIH" & Country!= "HRV" & Country!="SVN")
+
+
 agg_png(file = wdir("COVIDiSTRESS/Fig1.png"), width = 1200, height = 1020,  res = 144)
 ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
     geom_line() +
@@ -642,7 +649,17 @@ dev.off()
 knitr::include_graphics(wdir("COVIDiSTRESS/Fig1.png"))
 
 # this is a version for study 2
-fig1_2 <- ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
+
+# labels need adjustment
+deaths_longCLa <- deaths_longCLa %>%
+  mutate(dead_lead_log = ifelse(Country == "AUS", 20.2, dead_lead_log),
+         dead_lead_log = ifelse(Country == "BIH", 25.3, dead_lead_log),
+         dead_lead_log = ifelse(Country == "BGR", 26.9, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MKD", 28.6, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MYS", 23.6, dead_lead_log))
+
+
+fig1_2 <- ggplot(data=deaths_longCa, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
     geom_line() +
   labs(x= "", y = "Outbreak Severity (18 day lead of COVID-19 deaths)") +
   geom_segment(aes(x = as.Date("2020-03-27"), y = 1, xend = as.Date("2020-03-27"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
@@ -661,7 +678,7 @@ fig1_2 <- ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country,
            label="120k", size=4.5, color = "gray20") +
   annotate("text", x= as.Date("2020-04-13"), y=137, label="survey time-frame", size = 4, color="black") +
   scale_x_date(date_breaks = "2 weeks" , date_labels = "%d-%b") +
-  geom_text(data = deaths_longCL, aes(label = Country, colour = Country, x = as.Date(date), y = dead_lead_log, hjust = -.1), size = 2.62) +
+  geom_text(data = deaths_longCLa, aes(label = Country, colour = Country, x = as.Date(date), y = dead_lead_log, hjust = -.1), size = 2.62) +
   theme(legend.position = "none",
         panel.background = element_blank(),
         axis.text.y = element_blank(),
@@ -676,6 +693,7 @@ fig1_2 <- ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country,
 # 80 = 8,000
 # 105 = 28,000
 # 130 = 120,000
+
 
 ```
 
