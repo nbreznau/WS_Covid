@@ -1,5 +1,5 @@
 ---
-title: "Technical Appendix: Social Inequality and Risk Perceptions During a Pandemic"
+title: "Technical Appendix: Social Inequality, Risk Perceptions and Infection"
 output:
   html_document: default
 ---
@@ -11,24 +11,18 @@ output:
 
 
 
-use deaths_longC as the outcome variable for Stage 2
-
-
-
-
 The following files are necessary to run this code
 
 * *cis2.Rdata* - the data from Breznau (2020) https://osf.io/muhdz/
 * *covid-stringency-index.csv* -            https://ourworldindata.org/grapher/covid-stringency-index
 * *WID_Data_14082020-111941.xlsx* - https://wid.world/data/
-* *swiid8_3.Rda* - Solt Gini data
-
-Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly [DOI](https://doi.org/10.1111/ssqu.12795)
+* *swiid8_3.Rda* - Solt (2020) Gini data
 
 
-This is a follow up study of 
 
-Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*. [DOI](https://doi.org/10.1080/14616696.2020.1793215)
+
+Breznau (2020) found that the welfare state probably reduces pandemic risk perceptions, but only for certain countries that failed to take strong government intervention measures. We expect that economic inequality (an outcome of the welfare state, and other things) might be a better indicator of what causes risk perceptions beyond what we would expect given the severity of the local outbreak and government interventions. This is the motivation for the following study.
+
 
 
 
@@ -100,9 +94,9 @@ knitr::include_graphics(wdir("second_study/Fig2.png"))
 ```
 ### Data cleaning
 
-#### Deaths May 31st % increase
+#### Deaths w 18-day Lead, May 1 - May 20th % increase
 
-Data in deaths_longCa taken from Johns Hopkins
+Data in deaths_longCa taken from Johns Hopkins https://github.com/CSSEGISandData/COVID-19
 
 Calculate infection severity as 18-day lead deaths increase from April 15th / May 1st to May 31st, and deaths per capita May 31st.
 
@@ -112,17 +106,15 @@ infect_merge <- as.data.frame(matrix(nrow = 74, ncol = 1))
 infect_merge[1:74,1] <- as.numeric(countries)
 colnames(infect_merge) <- c("cow")
 
-d1 <- subset(deaths_longCa, date == "2020-04-15", select = c(cow, dead_lead))
-d2 <- subset(deaths_longCa, date == "2020-05-01", select = c(cow, dead_lead))
-d3 <- subset(deaths_longCa, date == "2020-05-31", select = c(cow, dead_lead, dead_1st_date))
+d1 <- subset(deaths_longCa, date == "2020-05-01", select = c(cow, dead_lead))
+d2 <- subset(deaths_longCa, date == "2020-05-31", select = c(cow, dead_lead, dead_1st_date))
 
 infect_merge <- left_join(infect_merge, d1, by = "cow")
 infect_merge <- left_join(infect_merge, d2, by = "cow")
-infect_merge <- left_join(infect_merge, d3, by = "cow")
 
-colnames(infect_merge) <- c("cow","dead_lead_apr15","dead_lead_may1","dead_lead_may31","dead_1st_date")
+colnames(infect_merge) <- c("cow","dead_lead_may1","dead_lead_may31","dead_1st_date")
 
-rm(d1,d2,d3)
+rm(d1,d2)
 ```
 
 #### Blavatnik Government Data
@@ -197,8 +189,6 @@ gov_resp$gov_resp = as.numeric(scale(gov_resp$gov_resp_a))
 
 gov_resp <- select(gov_resp, -c(gov_resp_a))
 
-
-
 ```
 
 #### Income Concentration
@@ -271,7 +261,7 @@ df$top1 <- ifelse(df$cow == 160, .168, ifelse(df$cow == 850, .085, df$top1))
 
 #### Set up first model
 
-Needed for plotting prior to Tables
+Severity of outbreak should predict risk perceptions.
 
 ```{r m1plot}
 # adjust risk for severity of outbreak
@@ -282,6 +272,9 @@ df$m1p <- predict.lm(m1, df)
 
 # residuals
 df$m1r <- df$concern_self - df$m1p 
+
+m1 <- summary(m1)
+print(paste0("Adjusted r-square = ", round(m1[["r.squared"]],3)))
 ```
 
 
@@ -289,17 +282,12 @@ df$m1r <- df$concern_self - df$m1p
 
 ```{r rate_calc}
 
-# There was a change in reporting in Spain and the deaths dropped suddenly on May 6th, adjust for this here
+# There was a change in reporting in Spain and the deaths dropped suddenly on May 6th, adjust for this here. 
 
 df$dead_lead_may1 <- ifelse(df$cow == 230, 27000, df$dead_lead_may1)
 df <- df %>%
-  mutate(rate_1 = ifelse(dead_lead_may31 == 0, 0, (dead_lead_may31 - dead_lead_apr15) / (dead_lead_apr15)),
-         rate_2 = ifelse(dead_lead_may31 == 0, 0, (dead_lead_may31 - dead_lead_may1) / (dead_lead_may1)),
-         rate_1 = ifelse(rate_1 > 3, 3, rate_1),
-         rate_2 = ifelse(rate_2 > 3, 3, rate_2), # trim outliers
-         rate_1_pc = ifelse(dead_lead_may31 == 0, 0, (dead_lead_may31 - dead_lead_apr15) / pop),
-         rate_2_pc = ifelse(dead_lead_may31 == 0, 0, (dead_lead_may31 - dead_lead_may1) / pop),
-         deadpc_may18 = dead_lead_may1/pop
+  mutate(rate_2 = ifelse(dead_lead_may31 == 0, 0, (dead_lead_may31 - dead_lead_may1) / (dead_lead_may1)),
+         rate_2 = ifelse(rate_2 > 3, 3, rate_2) # trim outliers
   )
 ```
 
@@ -310,7 +298,7 @@ df <- df %>%
 ```{r descriptives}
 
 
-cor <- select(df, concern_self, concern_self_se, days_since_peak, conf_delta, gov_resp, gov_resp_avg, deadpc_may18, rate_1, rate_2, gini_disp, top1, socpolicy, gdp)
+cor <- select(df, concern_self, concern_self_se, days_since_peak, conf_delta, gov_resp, rate_2, gini_disp, top1, socpolicy, gdp)
 
 corm <- cor %>%
   mutate(concern_selfsd = sd(concern_self, na.rm = T),
@@ -318,9 +306,6 @@ corm <- cor %>%
          days_since_peaksd = sd(days_since_peak, na.rm = T),
          conf_deltasd = sd(conf_delta, na.rm = T),
          gov_respsd = sd(gov_resp, na.rm = T),
-         intervsd = sd(gov_resp_avg, na.rm = T),
-         dead_leadsd = sd(deadpc_may18, na.rm = T),
-         rate_1sd = sd(rate_1, na.rm = T),
          rate_2sd = sd(rate_2, na.rm = T),
          gini_dispsd = sd(gini_disp, na.rm = T),
          top1sd = sd(top1, na.rm = T),
@@ -330,9 +315,6 @@ corm <- cor %>%
          days_since_peak_min = min(days_since_peak, na.rm = T),
          conf_delta_min = min(conf_delta, na.rm = T),
          gov_resp_min = min(gov_resp, na.rm = T),
-         intervmin = min(gov_resp_avg, na.rm = T),
-         dead_leadmin = min(deadpc_may18, na.rm = T),
-         rate_1min = min(rate_1, na.rm = T),
          rate_2min = min(rate_2, na.rm = T),
          gini_disp_min = min(gini_disp, na.rm = T),
          top1_min = min(top1, na.rm = T),
@@ -343,9 +325,6 @@ corm <- cor %>%
          days_since_peak_max = max(days_since_peak, na.rm = T),
          conf_delta_max = max(conf_delta, na.rm = T),
          gov_resp_max = max(gov_resp, na.rm = T),
-         intervmax = max(gov_resp_avg, na.rm = T),
-         dead_leadmax = max(deadpc_may18, na.rm = T),
-         rate_1max = max(rate_1, na.rm = T),
          rate_2max = max(rate_2, na.rm = T),
          gini_disp_max = max(gini_disp, na.rm = T),
          top1_max = max(top1, na.rm = T),
@@ -357,23 +336,20 @@ corm <- cor %>%
          days_since_peak = mean(days_since_peak, na.rm = T),
          conf_delta = mean(conf_delta, na.rm = T),
          gov_resp = mean(gov_resp, na.rm = T),
-         interv = as.numeric(mean(gov_resp_avg, na.rm = T)),
-         dead_lead = mean(deadpc_may18, na.rm = T),
-         rate_1 = mean(rate_1, na.rm = T),
          rate_2 = mean(rate_2, na.rm = T),
          gini_disp = mean(gini_disp, na.rm = T),
          top1 = mean(top1, na.rm = T),
          socpolicy = mean(socpolicy, na.rm = T),
          gdp = mean(gdp, na.rm = T))
 
-cor2 <- round(corm[1,1:13], 2)
-cor2[2,] <- round(corm[1,14:26], 2)
-cor2[3,] <- round(corm[1,27:39], 2)
-cor2[4,] <- round(corm[1,40:52], 2)
-cor2[5,1:13] <- 74
-cor2[5,10] <- 57
+cor2 <- round(corm[1,1:10], 2)
+cor2[2,] <- round(corm[1,11:20], 2)
+cor2[3,] <- round(corm[1,21:30], 2)
+cor2[4,] <- round(corm[1,31:40], 2)
+cor2[5,1:10] <- 74
+cor2[5,8] <- 57
 
-colnames(cor2) <- c("Risk Perception", "SE of Risk Perception by Country", "Days Since Curve Inflection", "New Cases Past Week","Gov Response Severity, Mar 15", "Gov Response Severity, since 1st death", "COVID-19 Deaths, per capita (k) May 18th", "Infection Rate Apr15-May31", "Infection Rate May1-May31", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita (k)")
+colnames(cor2) <- c("Risk Perception", "SE of Risk Perception by Country", "Days Since Curve Inflection", "New Cases Past Week","Strength of Gov Intervention", "Increase in Infection May1-May20", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita (k)")
 
 cor2 <- t(cor2)
 
@@ -389,7 +365,7 @@ kable_styling(kable(cor2, col.names = c("Mean", "SD", "Min", "Max", "N")))
 f1 <- cor(cor, use = "pairwise.complete.obs")
 
 
-cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "SE of Risk Perception by Country", "Days Since Curve Inflection", "New Cases Past Week","Gov Response Severity, Mar 15", "Gov Response Severity, since 1st death", "COVID-19 Deaths, per capita (k) May 18th", "Infection Rate Apr15-May31", "Infection Rate May1-May31", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita (k)"))
+cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "SE of Risk Perception by Country", "Days Since Curve Inflection", "New Cases Past Week","Strength of Gov Intervention", "Increase in Infection May1-May20", "Disposable Income Gini", "Top 1% Income Concentration", "Welfare State", "GDP, per capita (k)"))
 
 kable_styling(cor1)
 ```
@@ -428,8 +404,6 @@ ggplot(df, aes(y=m1p, x=concern_self)) +
 
 #   geom_smooth(method=lm, se=FALSE) +
 
-mx <- lm(m1r ~ gini_disp, data = df)
-summary(mx)
   
 ```
 
@@ -444,7 +418,7 @@ ggplot(df, aes(y=m1r, x=gini_disp)) +
   geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
   xlab("Disposable Income Inequality") +
   ylab("Risk Perceptions (M1 residuals)") +
-  labs(title = "Figure 2. Pandemic Risk Perceptions and Economic Inequality", subtitle = "\'Over\' or \'under\' concern explained by disposable income gini stratification", caption = "Plotted residuals from M1 (see Table 1). Where y > 0 countires have higher risk perceptions than predicted \nfrom the outbreak severity and government response, whereas y < 0 are lower than predicted. \nIncome inequality explains about 20% of the variation in over and under-concern across countries.") +
+  labs(title = "Figure 3. Pandemic Risk Perceptions and Economic Inequality", subtitle = "\'Over\' or \'under\' concern explained by disposable income gini stratification", caption = "Plotted residuals from M1 (see Table 1). Where y > 0 indicates higher risk perceptions than predicted \nfrom the outbreak severity and government response, whereas y < 0 are lower than predicted. \nIncome inequality explains about 20% of the variation in over and under-concern across countries.") +
   theme_classic() + 
   theme(
   plot.title = element_text(),
@@ -477,9 +451,9 @@ ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
         legend.title = element_text(size = 10))
 ```
 
-## Main Analysis Stage ONE
+## Main Analyses
 
-### Main Regresson Predicting Risk Perceptions
+### Predicting Risk Perceptions
 
 #### Table 1. M1 through M5
 
@@ -521,9 +495,6 @@ m3r <- lm(m1r ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
 tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M2_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("Tbl2.html"))
 ```
 
-### Robustness Analysis
-
-
 #### Additional Table - Top 1% instead of Gini
 
 ```{r reg_top1, echo = T}
@@ -550,7 +521,132 @@ tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05
 tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
-#### Robustness of Coefficient to Sampling Variation in Country-Means
+
+
+### Predicting Infection Rate, May 1 - May 20
+
+Conf_delta (new cases) measures a type of information the public and media consumes, it is actually a cause of a lower rate of infection, probably because having awareness of a high infection rate leads to behavioral and policy changes. 
+
+
+#### Table 2. 
+
+Predicting deaths using residual risk perceptions.
+
+```{r reg2rate_2}
+m10 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = df)
+
+# predicted values
+df$m10p <- predict.lm(m10, df)
+
+# residuals
+df$m10r <- df$rate_2 - df$m10p
+
+m11 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r, data = df)
+
+m12 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp, data = df)
+
+m13 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + socpolicy, data = df)
+
+m14 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gdp, data = df)
+
+m15 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp + socpolicy + gdp, data = df)
+
+tab_model(m10, m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+
+```
+
+#### Effect Size 
+
+Gini coefficient is 0.21 in standardized terms.
+
+```{r tbl2stdz}
+tab_model(m12, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T)
+
+```
+
+
+
+### Mediation Analysis
+
+#### Baseline Model
+
+```{r sem_baseline}
+m20 <- '     rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self
+             concern_self ~ days_since_peak + conf_delta + gov_resp 
+         '
+m20fit <- sem(m20, data = df)
+summary(m20fit, fit.measures = T)
+
+```
+
+#### Mediation
+
+```{r sem1}
+m21 <- '   # direct effect
+             rate_2 ~ c*gini_disp + days_since_peak + conf_delta + gov_resp 
+           # mediator
+             concern_self ~ a*gini_disp + days_since_peak + conf_delta + gov_resp 
+             rate_2 ~ b*concern_self 
+           # indirect effect (a*b)
+             ab := a*b
+           # total effect
+             total := c + (a*b)
+         '
+m21fit <- sem(m21, data = df)
+summary(m21fit, fit.measures = T)
+
+```
+
+```{r semstdz}
+standardizedsolution(m21fit)
+```
+
+```{r semstdztotal}
+m21_total <- '   # direct effect
+             rate_2 ~ gini_disp + days_since_peak + conf_delta + gov_resp 
+         '
+m21_totalfit <- sem(m21_total, data = df)
+summary(m21_totalfit, fit.measures = T)
+standardizedsolution(m21_totalfit)
+```
+```{r fig4_mediation}
+knitr::include_graphics(wdir("second_study/Fig4.png"))
+```
+
+
+
+```{r fig5, echo = T}
+
+# get new residuals from m13
+
+agg_png(file = wdir("second_study/Fig5.png"), width = 1000, height = 600, res = 144)
+ggplot(df, aes(y=m10r, x=gini_disp)) +
+  geom_smooth(method=lm, formula = y ~ poly(x, 2), se=T, size = 0.3, color = "gray30") +
+  geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
+  xlab("Disposable Income Inequality") +
+  ylab("Increase in Infections (%),  May 1st-20th") +
+  labs(title = "Figure 5. The Spread of COVID-19 and Economic Inequality", subtitle = "Infections not attributable to prior infection rate or government intervention", caption = "\'Increase in Outbreak\' measured as change in COVID-19 deaths per capita, 18-day lead\npredicted residuals from M13 (see Table 2), thus above zero is a greater than expected rate\n after adjusting for severity of outbreak and government measures in April") +
+  theme_classic() + 
+  theme(
+  plot.title = element_text(),
+  plot.subtitle = element_text(face = "italic"),
+  plot.caption = element_text(size = 9, color = "grey30", vjust = -2.5),
+  axis.title.x = element_text(vjust = -0.8),
+  axis.title.y = element_text(vjust = 2),
+  )
+invisible(dev.off())
+knitr::include_graphics(wdir("second_study/Fig5.png"))
+#    
+```
+
+
+
+
+We know that there is a risk of random sampling variation causing disturbance to the results. Therefore we again simulate the variability in the mean risk perceptions by country. 
+
+Get rid of earlier sampling robustness exercise and just do it here for both.
+
+#### Robustness of Coefficients to Sampling Variation. Simulating Plausible Alternative Values for Country-Means
 
 The confidence interval of our regression estimates is based on a sampling distribution across countries, but we have a potentially large source of uncertainty within countries due to the use of an online survey and some very small samples. The online survey problem cannot be solved directly through bootstrapping, but we can asses the robustness of our estimates using the within-country uncertainty. 
 
@@ -679,15 +775,16 @@ ggplot(results_df, aes(x = p, y = coeff, color = group)) +
 
 ```
 
+### Figure 6. Robustness Test of Inequality Effect
 
-### Figure 4. Robustness Test of Inequality Effect
+Probably just present as a table or report in text.
 
 ```{r densityplot, echo = T}
 # mean(results_df$coeff)
 # 0.02569374
 
 
-agg_png(file = wdir("second_study/Fig4.png"), width = 1000, height = 600, res = 144)
+agg_png(file = wdir("second_study/Fig6.png"), width = 1000, height = 600, res = 144)
 ggplot(results_df, aes(x=coeff)) + 
   geom_density() +
   xlab("Effect of Disposable Income Inequality on Risk Perceptions") +
@@ -707,90 +804,15 @@ ggplot(results_df, aes(x=coeff)) +
   axis.title.y = element_blank(),
   )
 invisible(dev.off())
-knitr::include_graphics(wdir("second_study/Fig4.png"))
+knitr::include_graphics(wdir("second_study/Fig6.png"))
 ```
-
-## Main Analysis Stage TWO
-
-### Regression Using Observed Values
-
-We did not forsee this, but as conf_delta (new cases) measures a type of information the public and media consumes, it is actually a cause of a lower rate of infection, probably because having awareness of a high infection rate leads to behavioral and policy changes. 
-
-
-#### Rate 2, May 1 to May 20 increase
-
-This is the preferred model where the DV time frame is exogenous
-
-```{r reg2rate_2}
-m13 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = df)
-
-# predicted values
-df$m13p <- predict.lm(m13, df)
-
-# residuals
-df$m13r <- df$rate_2 - df$m13p
-
-m14 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self, data = df)
-
-m16 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self + gini_disp, data = df)
-
-m15 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
-
-tab_model(m13, m14, m15, m16, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"))
-
-```
-
-
-Now run as mediation model
-
-```{r sem1}
-model <- ' # direct effect
-             rate_2 ~ c*gini_disp + days_since_peak + conf_delta + gov_resp 
-           # mediator
-             concern_self ~ a*gini_disp + days_since_peak + conf_delta + gov_resp 
-             rate_2 ~ b*concern_self 
-           # indirect effect (a*b)
-             ab := a*b
-           # total effect
-             total := c + (a*b)
-         '
-fit <- sem(model, data = df)
-summary(fit)
-
-```
-
-
-```{r fig5, echo = T}
-
-# get new residuals from m13
-
-agg_png(file = wdir("second_study/Fig5.png"), width = 1000, height = 600, res = 144)
-ggplot(df, aes(y=m13r, x=gini_disp)) +
-  geom_smooth(method=lm, formula = y ~ poly(x, 2), se=T, size = 0.3, color = "gray30") +
-  geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
-  xlab("Disposable Income Inequality") +
-  ylab("Increase in Infections (%),  May 1st-20th") +
-  labs(title = "Figure 5. The Spread of COVID-19 and Economic Inequality", subtitle = "Infections not attributable to prior infection rate or government intervention", caption = "\'Increase in Outbreak\' measured as change in COVID-19 deaths per capita, 18-day lead\npredicted residuals from M13 (see Table 2), thus above zero is a greater than expected rate\n after adjusting for severity of outbreak and government measures in April") +
-  theme_classic() + 
-  theme(
-  plot.title = element_text(),
-  plot.subtitle = element_text(face = "italic"),
-  plot.caption = element_text(size = 9, color = "grey30", vjust = -2.5),
-  axis.title.x = element_text(vjust = -0.8),
-  axis.title.y = element_text(vjust = 2),
-  )
-invisible(dev.off())
-knitr::include_graphics(wdir("second_study/Fig5.png"))
-#    
-```
-
-We know that there is a risk of random sampling variation causing disturbance to the results. Therefore we again simulate the variability in the mean risk perceptions by country. 
-
-Get rid of earlier sampling robustness exercise and just do it here for both.
-
-
 
 ```{r savepoint}
 save(df, file = wdir("COVIDiSTRESS/df_gibbs.Rmd"))
 ```
 
+## References
+
+Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*. [DOI](https://doi.org/10.1080/14616696.2020.1793215)
+
+Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly [DOI](https://doi.org/10.1111/ssqu.12795)
