@@ -40,7 +40,7 @@ wdira <- function(x){
 # install.packages("pacman")
 # devtools::install_github('r-lib/ragg')
 
-pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl","foreign", "ragg")
+pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl","foreign", "ragg","semTable","htmltools")
 
 ```
 
@@ -261,7 +261,7 @@ df$top1 <- ifelse(df$cow == 160, .168, ifelse(df$cow == 850, .085, df$top1))
 
 #### Set up first model
 
-Severity of outbreak should predict risk perceptions.
+Timing + severity of outbreak should predict risk perceptions.
 
 ```{r m1plot}
 # adjust risk for severity of outbreak
@@ -273,8 +273,8 @@ df$m1p <- predict.lm(m1, df)
 # residuals
 df$m1r <- df$concern_self - df$m1p 
 
-m1 <- summary(m1)
-print(paste0("Adjusted r-square = ", round(m1[["r.squared"]],3)))
+m1a <- summary(m1)
+print(paste0("Adjusted r-square = ", round(m1a[["r.squared"]],3)))
 ```
 
 
@@ -418,7 +418,7 @@ ggplot(df, aes(y=m1r, x=gini_disp)) +
   geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
   xlab("Disposable Income Inequality") +
   ylab("Risk Perceptions (M1 residuals)") +
-  labs(title = "Figure 3. Pandemic Risk Perceptions and Economic Inequality", subtitle = "\'Over\' or \'under\' concern explained by disposable income gini stratification", caption = "Plotted residuals from M1 (see Table 1). Where y > 0 indicates higher risk perceptions than predicted \nfrom the outbreak severity and government response, whereas y < 0 are lower than predicted. \nIncome inequality explains about 20% of the variation in over and under-concern across countries.") +
+  labs(title = "Figure 3. Pandemic Risk Perceptions and Economic Inequality", subtitle = "\'Over\' or \'under\' concern explained by income gini") +
   theme_classic() + 
   theme(
   plot.title = element_text(),
@@ -457,6 +457,8 @@ ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
 
 #### Table 1. M1 through M5
 
+So far this works to convert html to png https://cloudconvert.com/html-to-png, but we should play around with htmltools package to automate this in the code eventually.
+
 ```{r reg_gini, echo = T}
 
 #m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*gov_resp_avg, data = df)
@@ -480,6 +482,7 @@ tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.0
 
 tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
+
 
 #### Standardized Coefficients for Table 1
 
@@ -512,13 +515,17 @@ m4t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = d
 
 m5t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + top1 + socpolicy + gdp, data = dft)
 
-tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl1_ALT.html"))
+
+tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
+
+
 
 #### Additional Table - Standardized Results for above
 
 ```{r std_reg_top1}
-tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M11_Z", "M12_Z","M13_Z", "M14_Z","M15_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 
@@ -528,30 +535,55 @@ tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05
 Conf_delta (new cases) measures a type of information the public and media consumes, it is actually a cause of a lower rate of infection, probably because having awareness of a high infection rate leads to behavioral and policy changes. 
 
 
-#### Table 2. 
+#### Table 2. Infection Rate as DV, May 1 - May 21
 
 Predicting deaths using residual risk perceptions.
 
 ```{r reg2rate_2}
-m10 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = df)
+m21 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = df)
 
 # predicted values
-df$m10p <- predict.lm(m10, df)
+df$m21p <- predict.lm(m21, df)
 
 # residuals
-df$m10r <- df$rate_2 - df$m10p
+df$m21r <- df$rate_2 - df$m21p
 
-m11 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r, data = df)
+m22 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r, data = df)
 
-m12 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp, data = df)
+m23 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp, data = df)
 
-m13 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + socpolicy, data = df)
+m24 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + socpolicy, data = df)
 
-m14 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gdp, data = df)
+m25 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gdp, data = df)
 
-m15 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp + socpolicy + gdp, data = df)
+m26 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp + socpolicy + gdp, data = df)
 
-tab_model(m10, m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl2.html"))
+
+tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+
+```
+
+#### Table 2 Alternate. Using Top 1% instead. 
+
+Predicting deaths using residual risk perceptions.
+
+```{r reg2rate_2_top1}
+m31 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = dft)
+
+m32 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r, data = dft)
+
+m33 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + top1, data = dft)
+
+m34 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + socpolicy, data = dft)
+
+m35 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gdp, data = dft)
+
+m36 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + top1 + socpolicy + gdp, data = dft)
+
+tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl2_ALT.html"))
+
+tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 
 ```
 
@@ -560,7 +592,7 @@ tab_model(m10, m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10,
 Gini coefficient is 0.21 in standardized terms.
 
 ```{r tbl2stdz}
-tab_model(m12, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T)
+tab_model(m23, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T)
 
 ```
 
@@ -570,19 +602,30 @@ tab_model(m12, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F
 
 #### Baseline Model
 
+This is a maximum-likelihood estimated combination of M1 and M22, i.e., a structural equation model.
+
 ```{r sem_baseline}
-m20 <- '     rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self
+m40 <- '     rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self
              concern_self ~ days_since_peak + conf_delta + gov_resp 
          '
-m20fit <- sem(m20, data = df)
-summary(m20fit, fit.measures = T)
+m40fit <- sem(m40, data = df)
+summary(m40fit, fit.measures = T)
+
+Tbl3 <- semTable(m40fit, type = "html", print.results = F)
+
+save_html(Tbl3, wdir("second_study/Tbl3.html"), background = "white", libdir = wdir("second_study/"))
+
+knit_print.html(Tbl3)
+#html_print(Tbl3)
 
 ```
 
-#### Mediation
+#### Mediation.
+
+This is a combination of M2 and M23 to parse total, direct and indirect effects.
 
 ```{r sem1}
-m21 <- '   # direct effect
+m41 <- '   # direct effect
              rate_2 ~ c*gini_disp + days_since_peak + conf_delta + gov_resp 
            # mediator
              concern_self ~ a*gini_disp + days_since_peak + conf_delta + gov_resp 
@@ -592,22 +635,29 @@ m21 <- '   # direct effect
            # total effect
              total := c + (a*b)
          '
-m21fit <- sem(m21, data = df)
-summary(m21fit, fit.measures = T)
+m41fit <- sem(m41, data = df)
+
+Tbl4 <- semTable(m41fit, type = "html", print.results = F)
+
+save_html(Tbl4, wdir("second_study/Tbl4.html"), background = "white", libdir = wdir("second_study/"))
+
+# knit_print.html(Tbl4)
+
+Tbl4p <- html_print(Tbl4)
 
 ```
 
 ```{r semstdz}
-standardizedsolution(m21fit)
+standardizedsolution(m41fit)
 ```
 
 ```{r semstdztotal}
-m21_total <- '   # direct effect
+m42_total <- '   # direct effect
              rate_2 ~ gini_disp + days_since_peak + conf_delta + gov_resp 
          '
-m21_totalfit <- sem(m21_total, data = df)
-summary(m21_totalfit, fit.measures = T)
-standardizedsolution(m21_totalfit)
+m42_totalfit <- sem(m42_total, data = df)
+summary(m42_totalfit, fit.measures = T)
+standardizedsolution(m42_totalfit)
 ```
 ```{r fig4_mediation}
 knitr::include_graphics(wdir("second_study/Fig4.png"))
@@ -620,7 +670,7 @@ knitr::include_graphics(wdir("second_study/Fig4.png"))
 # get new residuals from m13
 
 agg_png(file = wdir("second_study/Fig5.png"), width = 1000, height = 600, res = 144)
-ggplot(df, aes(y=m10r, x=gini_disp)) +
+ggplot(df, aes(y=m21r, x=gini_disp)) +
   geom_smooth(method=lm, formula = y ~ poly(x, 2), se=T, size = 0.3, color = "gray30") +
   geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
   xlab("Disposable Income Inequality") +
@@ -652,7 +702,7 @@ The confidence interval of our regression estimates is based on a sampling distr
 
 There are many countries with small sample sizes (we excluded those with under 20) ranging from 20-50 whereas there are many other countries with over 5,000. This makes for quite an asymmetry in standard error, i.e., the uncertainty associated with each country's mean. Therefore, we bootstrap the estimates by generating random data that follow a normal distribution for each country based on the standard error. Then we run the analysis on each dataset to generate a confidence interval for our estimates that incorporates the within-country standard error of the mean.
 
-```{r robust_sim, message = F, warning = F}
+```{r robust_sim, message = F, warning = F, include = F}
 # The standard error takes into account the sample size, so now we create a simulation standard deviation based on the standard error leading to variation in means across 1000 simulations and a normal distribution.
 
 
@@ -675,7 +725,7 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg_a, message = F, warning = F, results='hide'}
+```{r robust_reg_a, message = F, warning = F, results='hide', include = F}
 for (i in 1:1000){
   name <- paste0("lm",i)
   assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
@@ -699,7 +749,7 @@ tab_model(lm113, show.std = T)
 # The average coefficient is 0.026 and this is a standardized effect of 0.20
 ```
 
-```{r robust_reg_b, message = F, warning = F, results='hide'}
+```{r robust_reg_b, message = F, warning = F, results='hide', include = F}
 rm(list = ls(pattern = "lm"))
 rm(model.list)
 results_df <- data.frame(matrix(unlist(coefs), nrow=length(coefs), byrow=T))
@@ -711,7 +761,7 @@ rm(pvalues)
 
 ```
 
-```{r robust_sim2, message = F, warning = F}
+```{r robust_sim2, message = F, warning = F, include = F}
 # Now repeat with a different seed
 
 
@@ -734,7 +784,7 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg2, message = F, warning = F, results='hide'}
+```{r robust_reg2, message = F, warning = F, results='hide', include = F}
 for (i in 1:1000){
   name <- paste0("lm",i)
   assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
@@ -761,7 +811,7 @@ rm(pvalues)
 
 ```
 
-```{r plot_robust}
+```{r plot_robust, include = F}
 results_df <- bind_rows(results_df, results_df2)
 # gen p-value indicator
 
@@ -779,7 +829,7 @@ ggplot(results_df, aes(x = p, y = coeff, color = group)) +
 
 Probably just present as a table or report in text.
 
-```{r densityplot, echo = T}
+```{r densityplot, echo = T, include = F}
 # mean(results_df$coeff)
 # 0.02569374
 
@@ -808,7 +858,7 @@ knitr::include_graphics(wdir("second_study/Fig6.png"))
 ```
 
 ```{r savepoint}
-save(df, file = wdir("COVIDiSTRESS/df_gibbs.Rmd"))
+save(df, file = wdir("second_study/df_gibbs.Rmd"))
 ```
 
 ## References
