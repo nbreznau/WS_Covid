@@ -480,7 +480,6 @@ m5 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp + so
 
 tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl1.html"))
 
-tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 
@@ -490,12 +489,12 @@ tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.0
 tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M1_Z", "M2_Z","M3_Z", "M4_Z","M5_Z"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
 
-#### Additional Table - The Regression behind Fig 3 (formatted)
+#### Additional Table "M2_resid"- The Regression behind Fig 3
 
 ```{r resid_reg, echo = T}
 m3r <- lm(m1r ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
 
-tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M2_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("Tbl2.html"))
+tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M2_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("second_study/Tbl2_resid.html"))
 ```
 
 #### Additional Table - Top 1% instead of Gini
@@ -517,7 +516,6 @@ m5t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + top1 + socpol
 
 tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl1_ALT.html"))
 
-tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 
@@ -560,8 +558,6 @@ m26 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp + s
 
 tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl2.html"))
 
-tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
-
 ```
 
 #### Table 2 Alternate. Using Top 1% instead. 
@@ -583,8 +579,6 @@ m36 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + top1 + socpol
 
 tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl2_ALT.html"))
 
-tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
-
 ```
 
 #### Effect Size 
@@ -600,7 +594,7 @@ tab_model(m23, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F
 
 ### Mediation Analysis
 
-#### Baseline Model
+#### Table 3. Baseline Model
 
 This is a maximum-likelihood estimated combination of M1 and M22, i.e., a structural equation model.
 
@@ -620,7 +614,7 @@ knit_print.html(Tbl3)
 
 ```
 
-#### Mediation.
+#### Table 4 (Appendix Only). Mediation
 
 This is a combination of M2 and M23 to parse total, direct and indirect effects.
 
@@ -641,9 +635,7 @@ Tbl4 <- semTable(m41fit, type = "html", print.results = F)
 
 save_html(Tbl4, wdir("second_study/Tbl4.html"), background = "white", libdir = wdir("second_study/"))
 
-# knit_print.html(Tbl4)
-
-Tbl4p <- html_print(Tbl4)
+knit_print.html(Tbl4)
 
 ```
 
