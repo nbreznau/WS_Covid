@@ -556,7 +556,9 @@ m25 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gdp, data = d
 
 m26 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp + socpolicy + gdp, data = df)
 
-tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl2.html"))
+m27 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gini_disp + I(gini_disp^2) + gdp, data = df)
+
+tab_model(m21, m22, m23, m24, m25, m26, m27, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita", "Disposable Income Inequality^2"), file = wdir("second_study/Tbl2.html"))
 
 ```
 
@@ -577,7 +579,10 @@ m35 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + gdp, data = d
 
 m36 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + top1 + socpolicy + gdp, data = dft)
 
-tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl2_ALT.html"))
+m37 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + m2r + top1 + gdp + I(top1^2), data = dft)
+
+
+tab_model(m31, m32, m33, m34, m35, m36, m37, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36","M37"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita", "Top 1% Income Concentration^2"), file = wdir("second_study/Tbl2_ALT.html"))
 
 ```
 
@@ -651,10 +656,53 @@ m42_totalfit <- sem(m42_total, data = df)
 summary(m42_totalfit, fit.measures = T)
 standardizedsolution(m42_totalfit)
 ```
-```{r fig4_mediation}
+```{r fig4_mediation, echo = T}
 knitr::include_graphics(wdir("second_study/Fig4.png"))
 ```
+#### Curvilinear Effect of Inequality
 
+It weighs in at p = 0.05
+
+```{r sem2}
+
+# create squared term
+df$gini_disp2 <- df$gini_disp^2
+# center
+df$gini_disp2c <- df$gini_disp2 - mean(df$gini_disp2)
+
+m42 <- '   # direct effect
+             rate_2 ~ c*gini_disp + gini_disp2 + days_since_peak + conf_delta + gov_resp 
+           # mediator
+             concern_self ~ a*gini_disp + days_since_peak + conf_delta + gov_resp 
+             rate_2 ~ b*concern_self 
+           # indirect effect (a*b)
+             ab := a*b
+           # total effect
+             total := c + (a*b)
+         '
+m42fit <- sem(m42, data = df)
+summary(m42fit, fit.measures = T)
+
+# Tbl5 <- semTable(m42fit, type = "html", print.results = F)
+
+# save_html(Tbl5, wdir("second_study/Tbl4.html"), background = "white", libdir = wdir("second_study/"))
+
+# knit_print.html(Tbl5)
+
+```
+
+#### Plotting the curvilinear effect
+
+Use standard OLS for easy plotting
+
+```{r sem2plot}
+m42ols <- lm(rate_2 ~ poly(gini_disp,2) + days_since_peak + conf_delta + gov_resp + concern_self, data = df)
+
+m42plot <- plot_model(m42ols, type = "pred", terms = c("gini_disp"))
+
+
+m42plot + labs(title = "", x = "Disposable Income Inequality", y = "Infection Rate, May 1st-20th")
+```
 
 
 ```{r fig5, echo = T}
@@ -662,9 +710,9 @@ knitr::include_graphics(wdir("second_study/Fig4.png"))
 # get new residuals from m13
 
 agg_png(file = wdir("second_study/Fig5.png"), width = 1000, height = 600, res = 144)
-ggplot(df, aes(y=m21r, x=gini_disp)) +
-  geom_smooth(method=lm, formula = y ~ poly(x, 2), se=T, size = 0.3, color = "gray30") +
-  geom_text_repel(aes(label=iso), size = 3, color = "blue4", segment.size = 0.1) +
+m42plot +
+  geom_point(data = df, aes(y = m1r, x = gini_disp), inherit.aes = F) +
+  #geom_label_repel(aes(df, label=iso), inhereit.aes = F, size = 3, color = "blue4", segment.size = 0.1) +
   xlab("Disposable Income Inequality") +
   ylab("Increase in Infections (%),  May 1st-20th") +
   labs(title = "Figure 5. The Spread of COVID-19 and Economic Inequality", subtitle = "Infections not attributable to prior infection rate or government intervention", caption = "\'Increase in Outbreak\' measured as change in COVID-19 deaths per capita, 18-day lead\npredicted residuals from M13 (see Table 2), thus above zero is a greater than expected rate\n after adjusting for severity of outbreak and government measures in April") +
@@ -678,7 +726,9 @@ ggplot(df, aes(y=m21r, x=gini_disp)) +
   )
 invisible(dev.off())
 knitr::include_graphics(wdir("second_study/Fig5.png"))
-#    
+#      geom_smooth(method=lm, formula = y ~ poly(x, 2), se=T, size = 0.3, color = "gray30") +
+#geom_point(data = t1, aes(x = mean_time, y = mean_dist), inherit.aes = FALSE). If working, add + geom_label( ... )
+
 ```
 
 
