@@ -741,31 +741,26 @@ standardizedsolution(m42_totalfit)
 ```{r fig4_mediation, echo = T}
 knitr::include_graphics(wdir("second_study/Fig4.png"))
 ```
-#### Nonlinear Mediation
 
-It weighs in at p = 0.05
+# sheaf coefficient
 
-```{r nonl_mediation}
-# model M - mediator
-# this is M2, as we don't expect a nonlinear effet of gini on concern_self
+```{r sheaf tactic}
+df <- df %>%
+  mutate(gini_sheaf = -0.124451*gini_disp + 0.001946*gini_disp2,
+         concern_sheaf = -10.065394*concern_self + 1.184050*concern_self2)
 
-# model Y - outcome
-# M26
-med1 <- mediate(m2, m26, treat = "gini_disp", mediator = "concern_self", 
-                control.value = 40, treatment.value = 50)
+m2sheaf <- lm(concern_sheaf ~ gini_sheaf + days_since_peak + conf_delta + gov_resp, data = df)
+m26sheaf <- lm(rate_2 ~ concern_sheaf + gini_sheaf + days_since_peak + conf_delta + gov_resp, data = df)
+
+med1 <- mediate(m2sheaf, m26sheaf, treat = "gini_sheaf", mediator = "concern_sheaf")
+
 summary(med1)
-
-# results from above indicate negative coefficients; this suggests that the 
-# squared term is not being dealt with properly
-
-med2 <- mediate(m2, m26, treat = "gini_disp", mediator = "concern_self", 
-                control.value = 40, treatment.value = 30)
-summary(med2)
-
-plot(med1)
-
+  
+  
 
 ```
+
+
 
 #### Plotting the curvilinear effect
 
