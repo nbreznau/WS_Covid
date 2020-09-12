@@ -280,6 +280,18 @@ df$newdthpc10 <- df$newdthpc*10
 df$rate_3 <- df$newdthpc10
 ```
 
+#### Squared Terms
+
+```{r srts}
+df <- df %>%
+  mutate(gini_dispR = gini_disp/100, # make gini smaller to keep boundaries reasonable in SEM
+         gini_disp2 = gini_dispR^2,
+         concern_self2 = concern_self^2,
+         gini_disp2C = gini_disp2 - mean(gini_disp2),
+         concern_self2C = concern_self2 - mean(concern_self2))
+```
+
+
 ### Statistics
 
 #### Set up first models (exploratory models)
@@ -734,13 +746,130 @@ standardizedsolution(m41fit)
 m42_total <- '   # direct effect
              rate_2 ~ gini_disp + days_since_peak + conf_delta + gov_resp 
          '
-m42_totalfit <- sem(m42_total, data = df)
+m42_totalfit <- sem(m42_total, data = df, meanstructure = T)
 summary(m42_totalfit, fit.measures = T)
 standardizedsolution(m42_totalfit)
 ```
 ```{r fig4_mediation, echo = T}
 knitr::include_graphics(wdir("second_study/Fig4.png"))
 ```
+
+### Nonlinear Mediation Modeling 
+
+This strategy follows Hayes and Preacher (2010). The effect is non-linear meaning that it is heterogeneous. There is no single value of the income inequality effect. Hayes and Preacher (2010) suggest estimating an **instantaneous indirect effect** which is actually based on derivatives and then can be plotted as different effects at different levels.
+
+Table 1 in Hayes and Preacher (2010) offers the derivation of the formulas:
+
+Mediation Formulas
+
+$\hat{Y} = i_{2} + c'_{1}X + c'_{2}X^{2} + b_{1}M + b_{2}M^{2}$
+
+$\hat{M} = i_{1} + aX$
+
+Instantaneous Indirect Effects of $X$ on $Y$ through $M$ are derived as (Table 1):
+
+$a(b_{1} + 2b_{2}\hat{M})$)
+
+The only problem is that the effect of X includes a squared term, this squared term must be treated as a covariate (like $W$ in their paper) and then the model should work, changing the squared term's fixed value for each.
+
+```{r sem43}
+m43 <- '   # direct effect
+             rate_2 ~ c1*gini_dispR + c2*gini_disp2 + w11*days_since_peak + w12*conf_delta + w13*gov_resp 
+           # mediator
+             concern_self ~ a1*gini_dispR + a2*gini_disp2 + w1*days_since_peak + w2*conf_delta + w3*gov_resp 
+             rate_2 ~ b1*concern_self + b2*concern_self2 
+           # constraints/parameters
+             concern_self ~~ gini_disp2
+             a2 == 0
+           # intercept naming
+             concern_self ~ i1*1
+             rate_2 ~ i2*1
+           # instantaneous indir effect calc at values
+             x1 := .225
+             x2 := .25
+             x3 := .275
+             x4 := .30
+             x5 := .325
+             x6 := .35
+             x7 := .375
+             x8 := .40
+             x9 := .425
+             x10 := .45
+             x11 := .475
+             x12 := .50
+           # requires fixing covariates and gini_disp2C 
+             predm1 := i1+(a1*x1)+(a2*x1*x1)+w1*.30+w2*0.37+0*w3
+             predm2 := i1+(a1*x2)+(a2*x2*x2)+w1*.30+w2*0.37+0*w3
+             predm3 := i1+(a1*x3)+(a2*x3*x3)+w1*.30+w2*0.37+0*w3
+             predm4 := i1+(a1*x4)+(a2*x4*x4)+w1*.30+w2*0.37+0*w3
+             predm5 := i1+(a1*x5)+(a2*x5*x5)+w1*.30+w2*0.37+0*w3
+             predm6 := i1+(a1*x6)+(a2*x6*x6)+w1*.30+w2*0.37+0*w3
+             predm7 := i1+(a1*x7)+(a2*x7*x7)+w1*.30+w2*0.37+0*w3
+             predm8 := i1+(a1*x8)+(a2*x8*x8)+w1*.30+w2*0.37+0*w3
+             predm9 := i1+(a1*x9)+(a2*x9*x9)+w1*.30+w2*0.37+0*w3
+             predm10 := i1+(a1*x10)+(a2*x10*x10)+w1*.30+w2*0.37+0*w3
+             predm11 := i1+(a1*x11)+(a2*x11*x11)+w1*.30+w2*0.37+0*w3
+             predm12 := i1+(a1*x12)+(a2*x12*x12)+w1*.30+w2*0.37+0*w3
+           # instantaneous indirect effects (gini_disp2 must be held constant here)
+             theta1 := (b1+2*b2*predm1)*a1
+             theta2 := (b1+2*b2*predm2)*a1
+             theta3 := (b1+2*b2*predm3)*a1
+             theta4 := (b1+2*b2*predm4)*a1
+             theta5 := (b1+2*b2*predm5)*a1
+             theta6 := (b1+2*b2*predm6)*a1
+             theta7 := (b1+2*b2*predm7)*a1
+             theta8 := (b1+2*b2*predm8)*a1
+             theta9 := (b1+2*b2*predm9)*a1
+             theta10 := (b1+2*b2*predm10)*a1
+             theta11 := (b1+2*b2*predm11)*a1
+             theta12 := (b1+2*b2*predm12)*a1
+           # pred values
+             predy1 := i2 + c1*x1 + c2*x1*x1 + b1*predm1 + b2*predm1*predm1 + w11*.30+w12*0.37+0*w13
+             predy2 := i2 + c1*x2 + c2*x2*x2 + b1*predm2 + b2*predm2*predm2 + w11*.30+w12*0.37+0*w13
+             predy3 := i2 + c1*x3 + c2*x3*x3 + b1*predm3 + b2*predm3*predm3 + w11*.30+w12*0.37+0*w13
+             predy4 := i2 + c1*x4 + c2*x4*x4 + b1*predm4 + b2*predm4*predm4 + w11*.30+w12*0.37+0*w13
+             predy5 := i2 + c1*x5 + c2*x5*x5 + b1*predm5 + b2*predm5*predm5 + w11*.30+w12*0.37+0*w13
+             predy6 := i2 + c1*x6 + c2*x6*x6 + b1*predm6 + b2*predm6*predm6 + w11*.30+w12*0.37+0*w13
+
+         '
+m43fit <- sem(m43, data = df, meanstructure = T)
+
+summary(m43fit)
+
+
+
+# Tbl43 <- semTable(m43fit, type = "html", print.results = F)
+# 
+# save_html(Tbl43, wdir("second_study/Tbl43.html"), background = "white", libdir = wdir("second_study/"))
+# 
+# knit_print.html(Tbl43)
+
+```
+
+```{r plotting}
+m43mat <- summary(m43fit)
+m43mat <- as.data.frame(m43mat[["PE"]])
+a43 <- m43mat[41:52,]
+a43 <- select(a43, label, rhs)
+a43$rhs <- as.numeric(a43$rhs)
+b43 <- m43mat[53:64,]
+b43 <- select(b43, label, est)
+colnames(b43) <- c("moderator","pred_M")
+c43 <- m43mat[65:76,]
+c43 <- select(c43, lhs, est, se, z, pvalue)
+
+m43mat <- cbind(a43,b43,c43)
+
+rm(a43,b43,c43)
+
+ggplot(data = m43mat, aes(x = rhs, y = est)) +
+       geom_line()
+```
+
+
+
+
+
 
 # sheaf coefficient
 
@@ -978,5 +1107,7 @@ save(df, file = wdir("second_study/df_gibbs.Rmd"))
 ## References
 
 Breznau, Nate. 2020. “The Welfare State and Risk Perceptions: The Novel Coronavirus Pandemic and Public Concern in 70 Countries.” *European Societies*. [DOI](https://doi.org/10.1080/14616696.2020.1793215)
+
+Hayes, Andrew F., and Kristopher J. Preacher. 2010. “Quantifying and Testing Indirect Effects in Simple Mediation Models When the Constituent Paths Are Nonlinear.” Multivariate Behavioral Research 45(4):627–60. [Shared Copy](http://quantpsy.org/pubs/hayes_preacher_2010.pdf)
 
 Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Time: The Standardized World Income Inequality Database." Social Science Quarterly [DOI](https://doi.org/10.1111/ssqu.12795)
