@@ -830,6 +830,12 @@ m43 <- '   # direct effect
              predy4 := i2 + c1*x4 + c2*x4*x4 + b1*predm4 + b2*predm4*predm4 + w11*.30+w12*0.37+0*w13
              predy5 := i2 + c1*x5 + c2*x5*x5 + b1*predm5 + b2*predm5*predm5 + w11*.30+w12*0.37+0*w13
              predy6 := i2 + c1*x6 + c2*x6*x6 + b1*predm6 + b2*predm6*predm6 + w11*.30+w12*0.37+0*w13
+             predy7 := i2 + c1*x7 + c2*x7*x7 + b1*predm7 + b2*predm7*predm7 + w11*.30+w12*0.37+0*w13
+             predy8 := i2 + c1*x8 + c2*x8*x8 + b1*predm8 + b2*predm8*predm8 + w11*.30+w12*0.37+0*w13
+             predy9 := i2 + c1*x9 + c2*x9*x9 + b1*predm9 + b2*predm9*predm9 + w11*.30+w12*0.37+0*w13
+             predy10 := i2 + c1*x10 + c2*x10*x10 + b1*predm10 + b2*predm10*predm10 + w11*.30+w12*0.37+0*w13
+             predy11 := i2 + c1*x11 + c2*x11*x11 + b1*predm11 + b2*predm11*predm11 + w11*.30+w12*0.37+0*w13
+             predy12 := i2 + c1*x12 + c2*x12*x12 + b1*predm12 + b2*predm12*predm12 + w11*.30+w12*0.37+0*w13
 
          '
 m43fit <- sem(m43, data = df, meanstructure = T)
@@ -846,25 +852,54 @@ summary(m43fit)
 
 ```
 
-```{r plotting}
+```{r plotting_data}
 m43mat <- summary(m43fit)
 m43mat <- as.data.frame(m43mat[["PE"]])
 a43 <- m43mat[41:52,]
-a43 <- select(a43, label, rhs)
+a43 <- select(a43, rhs)
 a43$rhs <- as.numeric(a43$rhs)
+colnames(a43) <- c("X_gini")
 b43 <- m43mat[53:64,]
 b43 <- select(b43, label, est)
 colnames(b43) <- c("moderator","pred_M")
 c43 <- m43mat[65:76,]
-c43 <- select(c43, lhs, est, se, z, pvalue)
+c43 <- select(c43, est, se, z, pvalue)
+colnames(c43) <- c("inst_indr_effect","iie_se","iie_z","iie_p")
+d43 <- m43mat[77:88,]
+d43 <- select(d43, est, se, z, pvalue)
+colnames(d43) <- c("pred_Y","Y_se","Y_z","Y_p")
 
-m43mat <- cbind(a43,b43,c43)
+m43mat <- cbind(a43,b43,c43,d43)
 
-rm(a43,b43,c43)
+# Now transform so that all values are relative to an 'average', axis cross
 
-ggplot(data = m43mat, aes(x = rhs, y = est)) +
-       geom_line()
+# 1 - rescale Gini back into its 100-point original scale
+m43mat <- m43mat %>%
+  mutate(X_gini = round(X_gini*100,1),
+         pred_MC = pred_M - mean(pred_M),
+         iie_orig = inst_indr_effect/100,
+         iie_origC = iie_orig - mean(iie_orig),
+         pred_YavgC = 0.33820*pred_Y)
+
+rm(a43,b43,c43,d43)
+
+
+  
 ```
+
+```{r plots}
+ggplot(data = m43mat, aes(x = X_gini)) +
+  geom_line(aes(y = iie_orig, color = "Instantaneous\nIndirect Effect\n "), color = "blue") +
+  geom_line(aes(y = pred_YavgC, color = "Infection Increase\nMay, 2020, predicted\n "), color = "red") +
+  geom_line(aes(y = pred_MC, color = "Risk Perceptions\n f(inequality)\n "), color = "green")
+  
+              
+
+```
+
+
+
+
 
 
 
