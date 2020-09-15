@@ -525,7 +525,7 @@ tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.0
 ```{r resid_reg, echo = T}
 m3r <- lm(m1r ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
 
-tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M2_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"), file = wdir("second_study/Tbl2_resid.html"))
+tab_model(m3r, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M2_resid"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality"))
 ```
 
 #### Additional Table - Top 1% instead of Gini
@@ -545,8 +545,7 @@ m4t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = d
 
 m5t <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + top1 + socpolicy + gdp, data = dft)
 
-tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"), file = wdir("second_study/Tbl1_ALT.html"))
-
+tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Top 1% Income Concentration", "Welfare State Strength", "GDP Per Capita"))
 ```
 
 
@@ -564,9 +563,9 @@ tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05
 Conf_delta (new cases) measures a type of information the public and media consumes, it is actually a cause of a lower increase ratio of infection, probably because having awareness of a high infection increase leads to behavioral and policy changes. 
 
 
-#### Table 2_N. Infection Increase as DV, May 1 - May 31
+#### Additional Table. Infection Increase as DV, May 1 - May 31
 
-#### DV1. Infection Increase Ratio May
+These are the analyses that lead to Table 2. Here OLS is our 'first run', but it is biased because it cannot estimate mediation effects and therefore M40-M43 (and M50-M53 with top 1%) are the preferred models due to maximum-likelihood estimation.
 
 ```{r reg2rate_3}
 m21 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = df)
@@ -585,31 +584,29 @@ m27 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp +  concern_self + I(c
 
 
 
-tab_model(m21, m22, m23, m24, m25, m26, m27, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26","M27"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Risk Perceptions^2", "Disposable Income Inequality", "Disposable Income Inequality^2"), file = wdir("second_study/Tbl2.html"))
+tab_model(m21, m22, m23, m24, m25, m26, m27, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M21", "M22","M23", "M24","M25","M26","M27"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Risk Perceptions^2", "Disposable Income Inequality", "Disposable Income Inequality^2"))
 
 
 ```
 
 ```{r stdz_m26}
-m26_beta <- lm.beta(m26)
-m26_beta_concern <- m26_beta[["standardized.coefficients"]][["concern_self"]] + m26_beta[["standardized.coefficients"]][["I(concern_self^2)"]]
+m27_beta <- lm.beta(m27)
+m27_beta_concern <- m27_beta[["standardized.coefficients"]][["concern_self"]] + m27_beta[["standardized.coefficients"]][["I(concern_self^2)"]]
 
-m26_beta_gini <- m26_beta[["standardized.coefficients"]][["gini_disp"]] + m26_beta[["standardized.coefficients"]][["I(gini_disp^2)"]]
+m27_beta_gini <- m27_beta[["standardized.coefficients"]][["gini_disp"]] + m27_beta[["standardized.coefficients"]][["I(gini_disp^2)"]]
 ```
 
-#### Standardized Coefficients M26
+#### Standardized Coefficients M27
 
 Standardized combined effect of term + term^2
 
-Risk Perceptions = `r print(m26_beta_concern)`
-Disposable Income Inequality = `r print(m26_beta_gini`)
+Risk Perceptions = `r print(m27_beta_concern)`
+Disposable Income Inequality = `r print(m27_beta_gini`)
 
 
 
 
-#### Table 2 Alternate. Using Top 1% instead. 
-
-Predicting deaths per capita with risk perceptions.
+#### Additional Table. Infection Increase as DV Using Top 1% instead. 
 
 ```{r reg2rate_2}
 m31 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = dft)
@@ -626,18 +623,18 @@ m36 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + top1 + I(top1^2), d
 
 m37 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp +  concern_self + I(concern_self^2) + top1 + I(top1^2), data = dft)
 
-tab_model(m31, m32, m33, m34, m35, m36, m37, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36", "M37"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Risk Perceptions^2", "Disposable Income Inequality", "Disposable Income Inequality^2"), file = wdir("second_study/Tbl2_ALT.html"))
+tab_model(m31, m32, m33, m34, m35, m36, m37, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.loglik = T, show.aic = T, dv.labels = c("M31", "M32","M33", "M34","M35","M36", "M37"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Government Intervention", "Risk Perceptions", "Risk Perceptions^2", "Disposable Income Inequality", "Disposable Income Inequality^2"))
 
 
 ```
 
-#### Standardized Coefficients M36
+#### Standardized Coefficients M37
 
-```{r stdz_m36}
-m36_beta <- lm.beta(m36)
-m36_beta_concern <- m36_beta[["standardized.coefficients"]][["concern_self"]] + m36_beta[["standardized.coefficients"]][["I(concern_self^2)"]]
+```{r stdz_m37}
+m37_beta <- lm.beta(m37)
+m37_beta_concern <- m37_beta[["standardized.coefficients"]][["concern_self"]] + m37_beta[["standardized.coefficients"]][["I(concern_self^2)"]]
 
-m36_beta_gini <- m36_beta[["standardized.coefficients"]][["top1"]] + m36_beta[["standardized.coefficients"]][["I(top1^2)"]]
+m37_beta_gini <- m37_beta[["standardized.coefficients"]][["top1"]] + m37_beta[["standardized.coefficients"]][["I(top1^2)"]]
 ```
 
 Standardized combined effect of term + term^2
@@ -649,50 +646,69 @@ Disposable Income Inequality = `r print(m36_beta_gini`)
 
 ### Mediation Analysis
 
-SEM squared variables must be constructed by hand. To keep estimates 'under control', it is useful to center the variables
+SEM squared variables must be constructed by hand. To keep estimates 'under control', it is useful to center the variables.
 
-#### Table 3. Baseline Model
+#### M40 Baseline Model
 
 This is a maximum-likelihood estimated combination of M1 and M23, i.e., a structural equation model.
 
 
 ```{r sem_baseline}
-m40 <- '     rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self 
-             concern_self ~ days_since_peak + conf_delta + gov_resp
+m40 <- '     rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self + b2*concern_self2  + c1*gini_dispR + c2*gini_disp2
+             concern_self ~ days_since_peak + conf_delta + gov_resp + a1*gini_dispR + a2*gini_disp2
+           # this is critical because we constructed one out of the other   
+             concern_self2 ~ concern_self
+           # covariances
+
+           # intercepts
+             rate_2 ~ 1
+             concern_self ~ 1
+           # constraints
+             c1 == 0
+             c2 == 0
+             b2 == 0
+             a1 == 0
+             a2 == 0
          '
 m40fit <- sem(m40, data = df)
 summary(m40fit, fit.measures = T)
 
-Tbl3 <- semTable(m40fit, type = "html", print.results = F)
-
-save_html(Tbl3, wdir("second_study/Tbl3.html"), background = "white", libdir = wdir("second_study/"))
-
-knit_print.html(Tbl3)
-#html_print(Tbl3)
 
 ```
 
-#### Table 4 (Appendix Only). Mediation
+```{r semstdz41, echo = T}
+standardizedsolution(m40fit)
+```
+#### M41
 
-This is a combination of M2 and M23 to parse total, direct and indirect effects.
-
-Even though we know gini^2 should not be a predictor of concern_self, we include it to make sure the dir/indir calculation is accurate
+This is a model that is M40 plus linear mediation of inequality by risk perceptions
 
 ```{r sem1}
 m41 <- '   # direct effect
-             rate_2 ~ c*gini_dispR + days_since_peak + conf_delta + gov_resp 
+             rate_2 ~ c1*gini_dispR + c2*gini_disp2 + days_since_peak + conf_delta + gov_resp 
            # mediator
-             concern_self ~ a*gini_dispR + days_since_peak + conf_delta + gov_resp 
-             rate_2 ~ b*concern_self 
+             concern_self ~ a1*gini_dispR + a2*gini_disp2 + days_since_peak + conf_delta + gov_resp 
+             rate_2 ~ b1*concern_self + b2*concern_self2
+           # this is critical because we constructed one out of the other   
+             concern_self2 ~ concern_self
+           # covariances
+
+           # intercepts
+             rate_2 ~ 1
+             concern_self ~ 1
+           # constraints
+             c2 == 0
+             a2 == 0
+             b2 == 0
            # indirect effect 
-             ab := a*b
+             ab := a1*b1
            # total effect
-             total := c + a*b
+             total := c1 + a1*b1
          '
 m41fit <- sem(m41, data = df)
 
 Tbl4 <- semTable(m41fit, type = "html", print.results = F)
-
+semTable(m41fit, type = "html", print.results = F)
 save_html(Tbl4, wdir("second_study/Tbl4.html"), background = "white", libdir = wdir("second_study/"))
 
 knit_print.html(Tbl4)
@@ -703,19 +719,69 @@ knit_print.html(Tbl4)
 standardizedsolution(m41fit)
 ```
 
-```{r semstdztotal, echo = T}
+```{r fig4_mediation, echo = T}
+knitr::include_graphics(wdir("second_study/Fig4.png"))
+```
+
+#### M42 
+
+This adds the squared term for risk perceptions.
+
+
+```{r sem42, echo = T}
 m42 <- '   # direct effect
-             rate_2 ~ gini_dispR + gini_disp2 + days_since_peak + conf_delta + gov_resp 
+             rate_2 ~ c1*gini_dispR + c2*gini_disp2 + days_since_peak + conf_delta + gov_resp 
+           # mediator
+             concern_self ~ a1*gini_dispR + a2*gini_disp2 + days_since_peak + conf_delta + gov_resp 
+             rate_2 ~ b1*concern_self + b2*concern_self2
+           # this is critical because we constructed one out of the other   
+             concern_self2 ~ concern_self
+           # covariances
+
+           # intercepts
+             rate_2 ~ 1
+             concern_self ~ 1
+           # constraints
+             c2 == 0
+             a2 == 0
+
          '
 m42fit <- sem(m42, data = df, meanstructure = T)
 summary(m42fit, fit.measures = T)
 standardizedsolution(m42fit)
 ```
-```{r fig4_mediation, echo = T}
-knitr::include_graphics(wdir("second_study/Fig4.png"))
+
+
+#### M43
+
+
+
+##### M43 raw estimates
+
+```{r sem43}
+m43 <- '   # direct effect
+             rate_2 ~ c1*gini_dispR + c2*gini_disp2 + w11*days_since_peak + w12*conf_delta + w13*gov_resp 
+           # mediator
+             concern_self ~ a1*gini_dispR + a2*gini_disp2 + w1*days_since_peak + w2*conf_delta + w3*gov_resp 
+             rate_2 ~ b1*concern_self + b2*concern_self2 
+           # this is critical because we constructed one out of the other   
+             concern_self2 ~ concern_self
+           # intercept naming
+             concern_self ~ i1*1
+             rate_2 ~ i2*1
+           # constraint
+             a2 == 0
+
+         '
+m43fit <- sem(m43, data = df, meanstructure = T)
+
+summary(m43fit, fit.measures = T)
+
+standardizedsolution(m43fit)
+
 ```
 
-### Nonlinear Mediation Modeling 
+##### M43 for prediction/calculation
 
 This strategy follows Hayes and Preacher (2010). The effect is non-linear meaning that it is heterogeneous. There is no single value of the income inequality effect. Hayes and Preacher (2010) suggest estimating an **instantaneous indirect effect** which is actually based on derivatives and then can be plotted as different effects at different levels.
 
@@ -733,18 +799,23 @@ $a(b_{1} + 2b_{2}\hat{M})$)
 
 The only problem is that the effect of X includes a squared term, this squared term must be treated as a covariate (like $W$ in their paper) and then the model should work, changing the squared term's fixed value for each.
 
+Also, to get predicted instantaneous indirect effect we need to remove the covariance of concern_self and gini_disp2 from contaminating the estimates. We fixed gini_disp2 to zero in the equation for concern_self, thus the algorithm find every other possible way to explain this residual correlation before letting it fall into the residual. This likely skews the results, therefore, for prediction purposes we allow all of this correlation to simply fall into the residual thus alighing the instantaneous indirect effect with the predicted values of rate_2
+
 ```{r sem43}
-m43 <- '   # direct effect
+m43p <- '   # direct effect
              rate_2 ~ c1*gini_dispR + c2*gini_disp2 + w11*days_since_peak + w12*conf_delta + w13*gov_resp 
            # mediator
              concern_self ~ a1*gini_dispR + a2*gini_disp2 + w1*days_since_peak + w2*conf_delta + w3*gov_resp 
              rate_2 ~ b1*concern_self + b2*concern_self2 
-           # constraints/parameters
+           # this is critical because we constructed one out of the other   
+             concern_self2 ~ concern_self
+           # to fix the residual variance out of the predictions of the model this is necessary
              concern_self ~~ gini_disp2
-             a2 == 0
            # intercept naming
              concern_self ~ i1*1
              rate_2 ~ i2*1
+           # constraint
+             a2 == 0
            # instantaneous indir effect calc at values
              x1 := .225
              x2 := .25
@@ -758,19 +829,19 @@ m43 <- '   # direct effect
              x10 := .45
              x11 := .475
              x12 := .50
-           # requires fixing covariates and gini_disp2C 
-             predm1 := i1+(a1*x1)+(a2*x1*x1)+w1*.30+w2*0.37+0*w3
-             predm2 := i1+(a1*x2)+(a2*x2*x2)+w1*.30+w2*0.37+0*w3
-             predm3 := i1+(a1*x3)+(a2*x3*x3)+w1*.30+w2*0.37+0*w3
-             predm4 := i1+(a1*x4)+(a2*x4*x4)+w1*.30+w2*0.37+0*w3
-             predm5 := i1+(a1*x5)+(a2*x5*x5)+w1*.30+w2*0.37+0*w3
-             predm6 := i1+(a1*x6)+(a2*x6*x6)+w1*.30+w2*0.37+0*w3
-             predm7 := i1+(a1*x7)+(a2*x7*x7)+w1*.30+w2*0.37+0*w3
-             predm8 := i1+(a1*x8)+(a2*x8*x8)+w1*.30+w2*0.37+0*w3
-             predm9 := i1+(a1*x9)+(a2*x9*x9)+w1*.30+w2*0.37+0*w3
-             predm10 := i1+(a1*x10)+(a2*x10*x10)+w1*.30+w2*0.37+0*w3
-             predm11 := i1+(a1*x11)+(a2*x11*x11)+w1*.30+w2*0.37+0*w3
-             predm12 := i1+(a1*x12)+(a2*x12*x12)+w1*.30+w2*0.37+0*w3
+           # requires fixing covariates and gini_disp2 = 0 
+             predm1 := i1+(a1*x1)+w1*.30+w2*0.37+0*w3
+             predm2 := i1+(a1*x2)+w1*.30+w2*0.37+0*w3
+             predm3 := i1+(a1*x3)+w1*.30+w2*0.37+0*w3
+             predm4 := i1+(a1*x4)+w1*.30+w2*0.37+0*w3
+             predm5 := i1+(a1*x5)+w1*.30+w2*0.37+0*w3
+             predm6 := i1+(a1*x6)+w1*.30+w2*0.37+0*w3
+             predm7 := i1+(a1*x7)+w1*.30+w2*0.37+0*w3
+             predm8 := i1+(a1*x8)+w1*.30+w2*0.37+0*w3
+             predm9 := i1+(a1*x9)+w1*.30+w2*0.37+0*w3
+             predm10 := i1+(a1*x10)+w1*.30+w2*0.37+0*w3
+             predm11 := i1+(a1*x11)+w1*.30+w2*0.37+0*w3
+             predm12 := i1+(a1*x12)+w1*.30+w2*0.37+0*w3
            # instantaneous indirect effects (gini_disp2 must be held constant here)
              theta1 := (b1+2*b2*predm1)*a1
              theta2 := (b1+2*b2*predm2)*a1
@@ -799,34 +870,99 @@ m43 <- '   # direct effect
              predy12 := i2 + c1*x12 + c2*x12*x12 + b1*predm12 + b2*predm12*predm12 + w11*.30+w12*0.37+0*w13
 
          '
-m43fit <- sem(m43, data = df, meanstructure = T)
+m43pfit <- sem(m43p, data = df, meanstructure = T)
 
-summary(m43fit)
-
-
-
-# Tbl43 <- semTable(m43fit, type = "html", print.results = F)
-# 
-# save_html(Tbl43, wdir("second_study/Tbl43.html"), background = "white", libdir = wdir("second_study/"))
-# 
-# knit_print.html(Tbl43)
 
 ```
 
+#### Table 2. Hack Tab_Model to Make Identical SEM Tables
+
+```{r tab_sem, results = 'hide'}
+# set up frames
+
+m40tab <- matrix(summary(m40fit, fit.measures = T))
+m40fits <- as.data.frame(m40tab[[1]])
+m40parm <- as.data.frame(m40tab[[2]])
+m40parm <- select(m40parm, -c(label, exo))
+m41tab <- matrix(summary(m41fit, fit.measures = T))
+m41fits <- as.data.frame(m41tab[[1]])
+m41parm <- as.data.frame(m41tab[[2]])
+m41parm <- select(m41parm, -c(label, exo))
+m42tab <- matrix(summary(m42fit, fit.measures = T))
+m42fits <- as.data.frame(m42tab[[1]])
+m42parm <- as.data.frame(m42tab[[2]])
+m42parm <- select(m42parm, -c(label,exo))
+m43tab <- matrix(summary(m43fit, fit.measures = T))
+m43fits <- as.data.frame(m43tab[[1]])
+m43parm <- as.data.frame(m43tab[[2]])
+m43parm <- select(m43parm, -c(label, exo))
+
+# combine and name which results go with which models
+
+semtab <- rbind(m40parm,m41parm,m42parm,m43parm)
+semtab_labels <- as.data.frame(matrix(nrow = length(semtab[,1]), ncol = 1))
+semtab_labels$V1 <- as.list(unlist(strsplit(paste(paste(replicate(length(m40parm[,1]), "m40"), collapse = ","), paste(replicate(length(m41parm[,1]), "m41"), collapse = ","), paste(replicate(length(m42parm[,1]), "m42"), collapse = ","), paste(replicate(length(m43parm[,1]), "m43"), collapse = ","), sep = ","), ",")))
+
+semtab <- cbind(semtab_labels, semtab)
+semtab <- semtab %>%
+  mutate(est = round(est,3),
+         se = round(se,3),
+         pvalue = round(pvalue,3),
+         stars = ifelse(pvalue>0.1,"", ifelse(pvalue>0.05,"*", ifelse(pvalue>0.01,"**","***"))),
+         est = ifelse(rhs == "gini_dispR" | rhs == "gini_disp2", est/100, est),
+         se = ifelse(rhs == "gini_dispR" | rhs == "gini_disp2", se/100, se)
+  )
+
+semtab <- subset(semtab, op == "~" & lhs!= "concern_self2")
+
+
+semfits <- round(cbind(m40fits,m41fits,m42fits,m43fits),3)
+colnames(semfits) <- c("m40","m41","m42","m43")
+
+# get r-squared
+m40r2 <- round(as.data.frame(inspect(m40fit,'r2')),3)
+m41r2 <- round(as.data.frame(inspect(m41fit,'r2')),3)
+m42r2 <- round(as.data.frame(inspect(m42fit,'r2')),3)
+m43r2 <- round(as.data.frame(inspect(m43fit,'r2')),3)
+
+semr2s <- cbind(m40r2,m41r2,m42r2,m43r2)
+semr2s <- semr2s[1:2,]
+colnames(semr2s) <- c("m40","m41","m42","m43")
+
+semfits <- rbind(semfits,semr2s)
+
+semfits <- semfits[c("rate_2", "concern_self", "aic", "bic", "logl"),]
+
+rm(m40tab, m40fits, m40parm, m41tab, m41fits, m41parm, m42tab, m42fits, m42parm, m43tab, m43fits, m43parm, m40r2,m41r2,m42r2,m43r2, semr2s, semtab_labels)
+
+kable(semtab)
+kable(semfits)
+
+```
+
+To create a table identical to the tab_model table we adjust the html code by hand, but hopefully we can automate this in the future.
+
+```{r table2}
+knitr::include_graphics(wdir("second_study/Tbl2.html"))
+```
+
+
+#### Figure 5
+
 ```{r plotting_data, results = 'hide'}
-m43mat <- summary(m43fit)
+m43mat <- summary(m43pfit)
 m43mat <- as.data.frame(m43mat[["PE"]])
-a43 <- m43mat[41:52,]
+a43 <- m43mat[38:49,]
 a43 <- select(a43, rhs)
 a43$rhs <- as.numeric(a43$rhs)
 colnames(a43) <- c("X_gini")
-b43 <- m43mat[53:64,]
+b43 <- m43mat[50:61,]
 b43 <- select(b43, label, est)
 colnames(b43) <- c("moderator","pred_M")
-c43 <- m43mat[65:76,]
+c43 <- m43mat[62:73,]
 c43 <- select(c43, est, se, z, pvalue)
 colnames(c43) <- c("inst_indr_effect","iie_se","iie_z","iie_p")
-d43 <- m43mat[77:88,]
+d43 <- m43mat[74:85,]
 d43 <- select(d43, est, se, z, pvalue)
 colnames(d43) <- c("pred_Y","Y_se","Y_z","Y_p")
 
@@ -853,7 +989,7 @@ rm(a43,b43,c43,d43)
 ```
 
 ```{r plots}
-agg_png(file = wdir("second_study/Fig6.png"), width = 800, height = 600, res = 144)
+agg_png(file = wdir("second_study/Fig5.png"), width = 800, height = 600, res = 144)
 ggplot(data = m43mat, aes(x = X_gini)) +
   geom_abline(intercept = 0, slope = 0, size = 0.25, color = "grey2") +
   geom_ribbon(aes(ymin=ymin,ymax=ymax), fill = "grey70") +
@@ -862,19 +998,18 @@ ggplot(data = m43mat, aes(x = X_gini)) +
   geom_line(aes(y = iie_orig, color = "c"), size = 1) +
   geom_vline(xintercept = 31, linetype = 5, color = "darkgoldenrod4") +
   annotate(geom="label", x=26, y=1.7, label="Increasing inequality =\nLESS infections",
-              color="darkgoldenrod4", size = 2.5, fill = "slategray2") +
+              color="darkgoldenrod4", size = 2.5) +
   annotate(geom="label", x=36, y=1.7, label="Increasing inequality =\nMORE infections",
-              color="darkgoldenrod4", size = 2.5, fill = "slategray2") +
+              color="darkgoldenrod4", size = 2.5) +
   geom_segment(aes(x = 30.5, y = 1.7, xend = 29.5, yend = 1.7),
                   arrow = arrow(length = unit(0.2, "cm"), type = "closed"), colour = "darkgoldenrod4") +
   geom_segment(aes(x = 31.5, y = 1.7, xend = 32.5, yend = 1.7),
                   arrow = arrow(length = unit(0.2, "cm"), type = "closed"), colour = "darkgoldenrod4") +
-  scale_color_manual(name = "", labels = c("a" = "Infection Increase (Y)\nMay 1st to May 31st\nratio, predicted", "c" = "Instantaneous\nIndirect Effect\nX -> M -> Y" , "b" = "Risk Perceptions (M)\nApril, 2020\npredicted"), values = c("a" = "red", "b" = "blue", "c" = "darkgoldenrod4")) +
+  scale_color_manual(name = "", labels = c("a" = "Infection Increase (Y)\nMay 1st to May 31st\nratio, predicted", "c" = "Instantaneous\nIndirect Effect\n(rate of change)" , "b" = "Risk Perceptions (M)\nApril, 2020\npredicted"), values = c("a" = "red", "b" = "blue", "c" = "darkgoldenrod4")) +
   scale_x_continuous(breaks = c(25,30,35,40,45,50), expand = c(0,0)) +
   scale_y_continuous(breaks = c(-1,-0.5,0,0.5,1,1.5,2), limits = c(-1,2), expand = c(0,0)) +
   labs(x = "Disposable Income Inequality (X), gini",y = "Estimate") +
   theme(panel.background = element_blank(),
-        plot.background = element_rect(fill = "#BFD5E3"),
         panel.grid = element_blank(),
         axis.line = element_line(),
         legend.position = "bottom",
@@ -883,7 +1018,7 @@ ggplot(data = m43mat, aes(x = X_gini)) +
         plot.margin=unit(c(1,1,0.1,0.3),"cm"))
 dev.off()
 
-knitr::include_graphics(wdir("second_study/Fig6.png"))
+knitr::include_graphics(wdir("second_study/Fig5.png"))
 
 
 ```
@@ -891,38 +1026,6 @@ knitr::include_graphics(wdir("second_study/Fig6.png"))
 
 
 
-#### Hack Tab_Model to Make Identical SEM Tables
-
-```{r tab_sem, results = 'hide'}
-# set up frames
-
-m40tab <- matrix(summary(m40fit, fit.measures = T))
-m40fits <- as.data.frame(m40tab[[1]])
-m40parm <- as.data.frame(m40tab[[2]])
-m40parm <- select(m40parm, -c(exo))
-m41tab <- matrix(summary(m41fit, fit.measures = T))
-m41fits <- as.data.frame(m41tab[[1]])
-m41parm <- as.data.frame(m41tab[[2]])
-m41parm <- select(m41parm, -c(label, exo))
-m42tab <- matrix(summary(m42fit, fit.measures = T))
-m42fits <- as.data.frame(m42tab[[1]])
-m42parm <- as.data.frame(m42tab[[2]])
-m42parm <- select(m42parm, -c(exo))
-m43tab <- matrix(summary(m43fit, fit.measures = T))
-m43fits <- as.data.frame(m43tab[[1]])
-m43parm <- as.data.frame(m43tab[[2]])
-m43parm <- select(m43parm, -c(label, exo))
-
-# combine and name which results go with which models
-
-semtab <- rbind(m40parm,m41parm,m42parm,m43parm)
-semtab_labels <- as.data.frame(matrix(nrow = length(semtab[,1]), ncol = 1))
-semtab_labels$V1 <- as.list(unlist(strsplit(paste(paste(replicate(length(m40parm[,1]), "m40"), collapse = ","), paste(replicate(length(m41parm[,1]), "m41"), collapse = ","), paste(replicate(length(m42parm[,1]), "m42"), collapse = ","), paste(replicate(length(m43parm[,1]), "m43"), collapse = ","), sep = ","), ",")))
-
-
-
-
-```
 
 
 
