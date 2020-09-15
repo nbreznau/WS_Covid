@@ -1,5 +1,5 @@
 ---
-title: "Technical Appendix: Social Inequality, Risk Perceptions and Infection"
+title: "Investigating the role of economic inequality and risk perceptions in the Novel Coronavirus Pandemic."
 output:
   html_document: default
 ---
@@ -78,20 +78,24 @@ countries <- as.list(finaldf_Ca$cow)
 
 ```
 
-### Figure 1. Theoretical Model
+#### Figure 1. Theoretical Model
 
 ```{r fig1, echo = T}
 knitr::include_graphics(wdir("second_study/Fig1.png"))
 ```
 
 
-### Figure 2
+#### Figure 2
+
 ```{r fig1_2, echo = T}
 agg_png(file = wdir("second_study/Fig2.png"), width = 1200, height = 1020,  res = 144)
 print(fig1_2)
 dev.off()
 knitr::include_graphics(wdir("second_study/Fig2.png"))
 ```
+
+
+
 ### Data cleaning
 
 #### Deaths w 18-day Lead, May 1 - May 20th % increase
