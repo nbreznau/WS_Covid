@@ -589,7 +589,7 @@ tab_model(m21, m22, m23, m24, m25, m26, m27, p.style = "stars", p.threshold = c(
 
 ```
 
-```{r stdz_m26}
+```{r stdz_m27}
 m27_beta <- lm.beta(m27)
 m27_beta_concern <- m27_beta[["standardized.coefficients"]][["concern_self"]] + m27_beta[["standardized.coefficients"]][["I(concern_self^2)"]]
 
@@ -601,7 +601,7 @@ m27_beta_gini <- m27_beta[["standardized.coefficients"]][["gini_disp"]] + m27_be
 Standardized combined effect of term + term^2
 
 Risk Perceptions = `r print(m27_beta_concern)`
-Disposable Income Inequality = `r print(m27_beta_gini`)
+Disposable Income Inequality = `r print(m27_beta_gini)`
 
 
 
@@ -639,8 +639,8 @@ m37_beta_gini <- m37_beta[["standardized.coefficients"]][["top1"]] + m37_beta[["
 
 Standardized combined effect of term + term^2
 
-Risk Perceptions = `r print(m36_beta_concern)`
-Disposable Income Inequality = `r print(m36_beta_gini`)
+Risk Perceptions = `r print(m37_beta_concern)`
+Disposable Income Inequality = `r print(m37_beta_gini)`
 
 
 
@@ -776,9 +776,11 @@ m43 <- '   # direct effect
 m43fit <- sem(m43, data = df, meanstructure = T)
 
 summary(m43fit, fit.measures = T)
+```
 
+
+```{r sem43stdz}
 standardizedsolution(m43fit)
-
 ```
 
 ##### M43 for prediction/calculation
@@ -801,7 +803,7 @@ The only problem is that the effect of X includes a squared term, this squared t
 
 Also, to get predicted instantaneous indirect effect we need to remove the covariance of concern_self and gini_disp2 from contaminating the estimates. We fixed gini_disp2 to zero in the equation for concern_self, thus the algorithm find every other possible way to explain this residual correlation before letting it fall into the residual. This likely skews the results, therefore, for prediction purposes we allow all of this correlation to simply fall into the residual thus alighing the instantaneous indirect effect with the predicted values of rate_2
 
-```{r sem43}
+```{r sem43_pred}
 m43p <- '   # direct effect
              rate_2 ~ c1*gini_dispR + c2*gini_disp2 + w11*days_since_peak + w12*conf_delta + w13*gov_resp 
            # mediator
@@ -1031,71 +1033,6 @@ knitr::include_graphics(wdir("second_study/Fig5.png"))
 
 
 
-
-# sheaf coefficient
-
-```{r sheaf tactic}
-df <- df %>%
-  mutate(gini_sheaf = -0.124451*gini_disp + 0.001946*gini_disp2,
-         concern_sheaf = -10.065394*concern_self + 1.184050*concern_self2)
-
-m2sheaf <- lm(concern_sheaf ~ gini_sheaf + days_since_peak + conf_delta + gov_resp, data = df)
-m26sheaf <- lm(rate_2 ~ concern_sheaf + gini_sheaf + days_since_peak + conf_delta + gov_resp, data = df)
-
-med1 <- mediate(m2sheaf, m26sheaf, treat = "gini_sheaf", mediator = "concern_sheaf")
-
-summary(med1)
-  
-  
-
-```
-
-
-
-#### Plotting the curvilinear effect
-
-Use standard OLS for easy plotting
-
-```{r sem2plot}
-m42ols <- lm(rate_2 ~ gini_disp + I(gini_disp^2) + days_since_peak + conf_delta + gov_resp + concern_self, data = df)
-
-m42plot <- plot_model(m42ols, type = "pred", terms = c("gini_disp"))
-
-
-m42plot + labs(title = "", x = "Disposable Income Inequality", y = "Infection Increase (ratio), May 1st-20th")
-```
-
-
-```{r fig5, echo = T}
-
-
-# m22ralt_real
-
-agg_png(file = wdir("second_study/Fig5.png"), width = 1000, height = 600, res = 144)
-m42plot +
-  #geom_point(data = df, aes(y = m1r, x = gini_disp), inherit.aes = F) +
-  geom_text_repel(data = df, aes(y = newdthpc, x = gini_disp, label= iso), inhereit.aes = F, size = 3, color = "blue4", segment.size = 0.1) +
-  xlab("Disposable Income Inequality") +
-  ylab("Increase in Infections (ratio),  May 1st-20th") +
-  labs(title = "Figure 5. The Spread of COVID-19 and Economic Inequality", subtitle = "Infections not attributable to prior infection rate or government intervention", caption = "\'Increase in Outbreak\' measured as change in COVID-19 deaths per capita, 18-day lead\npredicted residuals from M13 (see Table 2), thus above zero is a greater than expected rate\n after adjusting for severity of outbreak and government measures in April") +
-  theme_classic() + 
-  theme(
-  plot.title = element_text(),
-  plot.subtitle = element_text(face = "italic"),
-  plot.caption = element_text(size = 9, color = "grey30", vjust = -2.5),
-  axis.title.x = element_text(vjust = -0.8),
-  axis.title.y = element_text(vjust = 2),
-  )
-invisible(dev.off())
-knitr::include_graphics(wdir("second_study/Fig5.png"))
-#      geom_smooth(method=lm, formula = y ~ poly(x, 2), se=T, size = 0.3, color = "gray30") +
-#geom_point(data = t1, aes(x = mean_time, y = mean_dist), inherit.aes = FALSE). If working, add + geom_label( ... )
-
-```
-
-
-
-
 We know that there is a risk of random sampling variation causing disturbance to the results. Therefore we again simulate the variability in the mean risk perceptions by country. 
 
 Get rid of earlier sampling robustness exercise and just do it here for both.
@@ -1261,9 +1198,6 @@ invisible(dev.off())
 knitr::include_graphics(wdir("second_study/Fig6.png"))
 ```
 
-```{r savepoint}
-save(df, file = wdir("second_study/df_gibbs.Rmd"))
-```
 
 ## References
 
