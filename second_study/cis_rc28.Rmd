@@ -1062,7 +1062,7 @@ for (c in countries){
 
 sim_df_wide <- as.data.frame(t(sim_df))
 
-sim_df_wide$cow <- finaldf_Ca$cow
+sim_df_wide$cow <- df$cow
 
 finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 
@@ -1070,138 +1070,205 @@ finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
 ```
 
 
-```{r robust_reg_a, message = F, warning = F, results='hide', include = F}
-for (i in 1:1000){
-  name <- paste0("lm",i)
-  assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
-}
 
-# coefficients
-
-model.list <- mget(grep("lm[0-9]+$", ls(),value=T))
-coefs <- lapply(model.list, function(x)coef(x)[5])
-
-
-# p-values
-pvalues<- lapply(model.list, function(x) summary(x)$coefficients[5,4])
-```
-
-Approximate beta coefficient
-
-```{r betasiml, include = F}
-tab_model(lm113, show.std = T)
-
-# The average coefficient is 0.026 and this is a standardized effect of 0.20
-```
-
-```{r robust_reg_b, message = F, warning = F, results='hide', include = F}
-rm(list = ls(pattern = "lm"))
-rm(model.list)
-results_df <- data.frame(matrix(unlist(coefs), nrow=length(coefs), byrow=T))
-results_df[,2] <- data.frame(matrix(unlist(pvalues), nrow=length(pvalues), byrow=T))
-
-colnames(results_df) <- c("coeff","p")
-rm(coefs)
-rm(pvalues)
-
-```
 
 ```{r robust_sim2, message = F, warning = F, include = F}
 # Now repeat with a different seed
 
 
 
-sim_df <- as.data.frame(matrix(nrow = 1000, ncol = 74))
+sim_dfa <- as.data.frame(matrix(nrow = 1000, ncol = 74))
 set.seed(66666)
-colnames(sim_df) <- c("sim_2", "sim_20",  "sim_55",  "sim_70",  "sim_90",  "sim_92",  "sim_94", "sim_100", "sim_130", "sim_135", "sim_140", "sim_155", "sim_160", "sim_200", "sim_205", "sim_210", "sim_211", "sim_212", "sim_220", "sim_225", "sim_230", "sim_235", "sim_255", "sim_290", "sim_305", "sim_310", "sim_316", "sim_317", "sim_325", "sim_338", "sim_339", "sim_343", "sim_344", "sim_346", "sim_349", "sim_350", "sim_352", "sim_355", "sim_360", "sim_365", "sim_366", "sim_367", "sim_368", "sim_369", "sim_372", "sim_375", "sim_380", "sim_385", "sim_390", "sim_395", "sim_560", "sim_600", "sim_615", "sim_640", "sim_651", "sim_666", "sim_696", "sim_700", "sim_703", "sim_710", "sim_713", "sim_732", "sim_740", "sim_750", "sim_770", "sim_771", "sim_816", "sim_820", "sim_830", "sim_835", "sim_840", "sim_850", "sim_900", "sim_920")
+colnames(sim_dfa) <- c("sima_2", "sima_20",  "sima_55",  "sima_70",  "sima_90",  "sima_92",  "sima_94", "sima_100", "sima_130", "sima_135", "sima_140", "sima_155", "sima_160", "sima_200", "sima_205", "sima_210", "sima_211", "sima_212", "sima_220", "sima_225", "sima_230", "sima_235", "sima_255", "sima_290", "sima_305", "sima_310", "sima_316", "sima_317", "sima_325", "sima_338", "sima_339", "sima_343", "sima_344", "sima_346", "sima_349", "sima_350", "sima_352", "sima_355", "sima_360", "sima_365", "sima_366", "sima_367", "sima_368", "sima_369", "sima_372", "sima_375", "sima_380", "sima_385", "sima_390", "sima_395", "sima_560", "sima_600", "sima_615", "sima_640", "sima_651", "sima_666", "sima_696", "sima_700", "sima_703", "sima_710", "sima_713", "sima_732", "sima_740", "sima_750", "sima_770", "sima_771", "sima_816", "sima_820", "sima_830", "sima_835", "sima_840", "sima_850", "sima_900", "sima_920")
 
 for (c in countries){
-  sim_df[paste0("sim_", c)] <- rnorm(1000, mean = finaldf_Ca[finaldf_Ca$cow == c, "concern_self"], sd = finaldf_Ca[finaldf_Ca$cow == c, "concern_self_se"])
+  sim_dfa[paste0("sima_", c)] <- rnorm(1000, mean = finaldf_Ca[finaldf_Ca$cow == c, "concern_self"], sd = finaldf_Ca[finaldf_Ca$cow == c, "concern_self_se"])
 }
 
-sim_df_wide <- as.data.frame(t(sim_df))
+sim_df_widea <- as.data.frame(t(sim_dfa))
 
-sim_df_wide$cow <- finaldf_Ca$cow
+sim_df_widea$cow <- df$cow
 
-finaldf_Ca_sim <- left_join(df, sim_df_wide, by = "cow")
+#make label names go in succession
+test <- as.character(seq(1001,2001))
+test <- lapply(test, function(X) paste0("V", test))
+test <- test[[1]]
+colnames(sim_df_widea) <- test
+sim_df_widea$cow <- sim_df_widea$V2001
+sim_df_widea <- select(sim_df_widea, -c(V2001))
 
+finaldf_Ca_sim <- left_join(finaldf_Ca_sim, sim_df_widea, by = "cow")
 
+rm(sim_df, sim_dfa, sim_df_wide, sim_df_widea)
+
+# create squared terms
+test <- as.character(seq(1,2000))
+test <- lapply(test, function(X) paste0("V", test))
+test <- test[[1]]
+
+for (i in 1:length(test)) {
+  col1 <- test[i]
+  col_new <- paste0(test[i], "sq")
+
+  finaldf_Ca_sim[, col_new] <- finaldf_Ca_sim[, col1]*finaldf_Ca_sim[, col1]
+}
 ```
 
+Designate the model and calculate the slope of the indirect effect
+```{r robust1}
+r43 <- '    rate_2 ~ c1*gini_dispR + c2*gini_disp2 + w11*days_since_peak + w12*conf_delta + w13*gov_resp
+             concern_self ~ a1*gini_dispR + a2*gini_disp2 + w1*days_since_peak + w2*conf_delta + w3*gov_resp 
+             rate_2 ~ b1*concern_self + b2*concern_selfsq 
+             concern_selfsq ~ concern_self
+             concern_self ~~ gini_disp2
+             concern_self ~ i1*1
+             rate_2 ~ i2*1
+             a2 == 0
+             x1 := .225
+             x12 := .50
+             predm1 := i1+(a1*x1)+w1*.30+w2*0.37+0*w3
+             predm12 := i1+(a1*x12)+w1*.30+w2*0.37+0*w3
+             theta1 := (b1+2*b2*predm1)*a1
+             theta12 := (b1+2*b2*predm12)*a1
+             slope := (theta12-theta1)/(x12-x1)
+             yint := theta12 - (slope*x12)
+             xint := -yint/slope
+         '
+```
 
-```{r robust_reg2, message = F, warning = F, results='hide', include = F}
-for (i in 1:1000){
-  name <- paste0("lm",i)
-  assign(name, lm(finaldf_Ca_sim[,paste0("V",i)] ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = finaldf_Ca_sim))
+note with limited RAM I can only do 750 at a time
+
+first 750
+
+```{r fitlist, message = F, warning = F}
+
+# 
+for (i in 1:750) {
+  assign(paste0("r43_",i), str_replace_all(r43, "concern_self", test[i]))
 }
 
-# coefficients
+# fit first 750 models
 
-model.list <- mget(grep("lm[0-9]+$", ls(),value=T))
-coefs <- lapply(model.list, function(x)coef(x)[5])
+# get list
+model.list <- mget(grep("r43_[0-9]+$", ls(),value=T))
 
+# remove values (clear up RAM)
+rm(list = ls(pattern = "r43_"))
 
-# p-values
-pvalues<- lapply(model.list, function(x) summary(x)$coefficients[5,4])
+# fitting loop
+for (m in 1:length(model.list)) {
+assign(paste0("fit_", names(model.list[m])), sem(paste0(model.list[m]), data = finaldf_Ca_sim, meanstructure = T, check.gradient = F))
+}
 
+# get fit list
+fit.list <- mget(grep("fit_r43_[0-9]+$", ls(),value=T))
+rm(list = ls(pattern = "fit_r43_"))
 
-rm(list = ls(pattern = "lm"))
-rm(model.list)
-results_df2 <- data.frame(matrix(unlist(coefs), nrow=length(coefs), byrow=T))
-results_df2[,2] <- data.frame(matrix(unlist(pvalues), nrow=length(pvalues), byrow=T))
+# extract iie
+iie_fit <- matrix(nrow = 2000, ncol = 2)
+i <- 1
+for (e in 1:750) {
+iie_fit[i,1] <- fit.list[[e]]@ParTable[["est"]][44]
+iie_fit[i,2] <- fit.list[[e]]@ParTable[["est"]][46]
+i <- i + 1
+}
 
-colnames(results_df2) <- c("coeff","p")
-rm(coefs)
-rm(pvalues)
+rm(fit.list, model.list)
+
+```
+751-1500
+
+```{r fitlist, message = F, warning = F}
+
+# 
+for (i in 751:1500) {
+  assign(paste0("r43_",i), str_replace_all(r43, "concern_self", test[i]))
+}
+
+# fit first 750 models
+
+# get list
+model.list <- mget(grep("r43_[0-9]+$", ls(),value=T))
+
+# remove values (clear up RAM)
+rm(list = ls(pattern = "r43_"))
+
+# fitting loop
+for (m in 1:length(model.list)) {
+assign(paste0("fit_", names(model.list[m])), sem(paste0(model.list[m]), data = finaldf_Ca_sim, meanstructure = T, check.gradient = F))
+}
+
+# get fit list
+fit.list <- mget(grep("fit_r43_[0-9]+$", ls(),value=T))
+rm(list = ls(pattern = "fit_r43_"))
+
+# extract iie
+i <- 751
+for (e in 1:750) {
+iie_fit[i,1] <- fit.list[[e]]@ParTable[["est"]][44]
+iie_fit[i,2] <- fit.list[[e]]@ParTable[["est"]][46]
+i <- i + 1
+}
+rm(fit.list, model.list)
 
 ```
 
-```{r plot_robust, include = F}
-results_df <- bind_rows(results_df, results_df2)
-# gen p-value indicator
+1501-2000
 
+```{r fitlist, message = F, warning = F}
 
-results_df$group <- ifelse(results_df$p < 0.05, 1, 0)
-results_df$group <- as.factor(results_df$group)
+# 
+for (i in 1501:2000) {
+  assign(paste0("r43_",i), str_replace_all(r43, "concern_self", test[i]))
+}
 
-ggplot(results_df, aes(x = p, y = coeff, color = group)) +
-         geom_point()
+# fit first 750 models
+
+# get list
+model.list <- mget(grep("r43_[0-9]+$", ls(),value=T))
+
+# remove values (clear up RAM)
+rm(list = ls(pattern = "r43_"))
+
+# fitting loop
+for (m in 1:length(model.list)) {
+assign(paste0("fit_", names(model.list[m])), sem(paste0(model.list[m]), data = finaldf_Ca_sim, meanstructure = T, check.gradient = F))
+}
+
+# get fit list
+fit.list <- mget(grep("fit_r43_[0-9]+$", ls(),value=T))
+rm(list = ls(pattern = "fit_r43_"))
+
+# extract iie
+i <- 1501
+for (e in 1:500) {
+iie_fit[i,1] <- fit.list[[e]]@ParTable[["est"]][44]
+iie_fit[i,2] <- fit.list[[e]]@ParTable[["est"]][46]
+i <- i + 1
+}
+rm(fit.list, model.list)
+
+iie_fit <- as.data.frame(iie_fit)
+colnames(iie_fit) <- c("slope","intercept")
+
+# put into original metric
+iie_fit$slope <- round(iie_fit$slope/100, 3)
+iie_fit$intercept <- round(iie_fit$intercept*100, 3)
+
+# get standard error 
+rob1 <- apply(iie_fit, 2, mean)
+rob2 <- apply(iie_fit, 2, sd)
+rob3 <- c(NA,NA)
+rob <- rbind(rob1, rob2, rob3)
+
+rob[3,1] <- rob[2,1]/sqrt(2000)
+rob[3,2] <- rob[2,2]/sqrt(2000)
+
 
 
 ```
 
-### Figure 6. Robustness Test of Inequality Effect
-
-Probably just present as a table or report in text.
-
-```{r densityplot, echo = T, include = F}
-# mean(results_df$coeff)
-# 0.02569374
-
-
-agg_png(file = wdir("second_study/Fig6.png"), width = 1000, height = 600, res = 144)
-ggplot(results_df, aes(x=coeff)) + 
-  geom_density() +
-  xlab("Effect of Disposable Income Inequality on Risk Perceptions") +
-  labs(title = "Figure 3. Robustness of Economic Inequality Effect", subtitle = "Analysis of 2,000 simulated risk perception means \nusing the within-country standard error", caption = "P-values for all 2,000 effects are less than 0.015, with 99.5% of p-values below 0.005.\nCountry case numbers range from 20 to 21,087; mean case numbers 1,452. ") +
-  geom_vline(xintercept = 0.02569, linetype="dashed", 
-                color = "red", size=1) +
-  geom_text(x=0.023, y=10, label="Robust Coefficient \n(average)\n beta = 0.20", color = "red", size = 3) +
-    geom_vline(xintercept = 0.03, linetype="dashed", 
-                color = "blue", size=1) +
-    geom_text(x=0.0326, y=50, label="Observed Coefficient \n(from M2) \nbeta = 0.50", color = "blue", size = 3) +
-  theme_classic() +
-      theme(
-  plot.title = element_text(),
-  plot.subtitle = element_text(face = "italic"),
-  plot.caption = element_text(size = 9, color = "grey30", vjust = -1.5),
-  axis.title.x = element_text(vjust = -0.8),
-  axis.title.y = element_blank(),
-  )
-invisible(dev.off())
-knitr::include_graphics(wdir("second_study/Fig6.png"))
-```
-
+For the instantaneous indirect effects, the robust mean slope is `r rob[1,1]` with a standard error of `r rob[3,1]` and the robust mean intercept is `r rob[1,2]` with a standard error of `r rob[3,2]`
 
 ## References
 
