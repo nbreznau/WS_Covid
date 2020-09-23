@@ -1,5 +1,5 @@
 ---
-title: "Investigating the role of economic inequality and risk perceptions in the Novel Coronavirus Pandemic."
+title: "TECHNICAL APPENDIX: The Swedish paradox explained? Investigating the role of economic inequality and risk perceptions in the Novel Coronavirus Pandemic."
 output:
   html_document: default
 ---
@@ -20,17 +20,11 @@ The following files are necessary to run this code
 
 
 
-
-Breznau (2020) found that the welfare state probably reduces pandemic risk perceptions, but only for certain countries that failed to take strong government intervention measures. We expect that economic inequality (an outcome of the welfare state, and other things) might be a better indicator of what causes risk perceptions beyond what we would expect given the severity of the local outbreak and government interventions. This is the motivation for the following study.
-
-
-
-
 ```{r setup}
 
 rm(list = ls(all = T))
 
-wda <- "C:/GitHub/WS_Covid" #it already has a 'wd' in this datafile so again reset it here
+wda <- "C:/GitHub/WS_Covid" #it already has a 'wd' in the cis envirnoment so reset it here
 wd <- wda
 
 wdira <- function(x){
@@ -98,11 +92,11 @@ knitr::include_graphics(wdir("second_study/Fig2.png"))
 
 ### Data cleaning
 
-#### Deaths w 18-day Lead, May 1 - May 20th % increase
+#### Deaths w 18-day Lead
 
-Data in deaths_longCa taken from Johns Hopkins https://github.com/CSSEGISandData/COVID-19
+Data in deaths_long_Ca taken from Johns Hopkins https://github.com/CSSEGISandData/COVID-19
 
-Measure the spread of infection as the 18-day lead deaths. Measure the 'increase in infection' as the rate of change from May 1st to May 31st.
+Measure the spread of infection as the 18-day lead deaths. Measure the 'increase in infection' as the ratio from May 1st to May 31st.
 
 
 ```{r death outcomes}
@@ -224,7 +218,7 @@ rm(top_inc)
 
 #### Solt Gini
 
-The Solt data include multiple measures of the Gini for many countries. We take the average score provided by Solt.
+The Solt data include multiple measures of the Gini for many countries. We take the average score provided by Solt for disposable income inequality.
 
 ```{r clean_solt, warning = F, message = F}
 rm(swiid)
@@ -298,7 +292,7 @@ df <- df %>%
 
 ### Statistics
 
-#### Set up first models (exploratory models)
+#### Set up first models (baseline models)
 
 M1 Timing + severity of outbreak should predict risk perceptions.
 M22 Risk perceptions + risk perceptions-curve should predict deaths.
@@ -320,6 +314,7 @@ m23 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp + concern_self + I(co
 
 
 ```
+
 #### Descriptives
 
 ```{r descriptives}
@@ -436,10 +431,6 @@ ggplot(df, aes(y=m1p, x=concern_self)) +
   xlab("Observed Risk Perceptions") +
   ylab("Predicted Risk Perceptions") +
   theme_classic()
-
-#   geom_smooth(method=lm, se=FALSE) +
-
-  
 ```
 
 #### Figure 3
@@ -492,7 +483,7 @@ ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
 
 #### Table 1. M1 through M5
 
-So far this works to convert html to png https://cloudconvert.com/html-to-png, but we should play around with htmltools package to automate this in the code eventually.
+So far this works to convert html to png https://cloudconvert.com/html-to-png, but we should play around with htmltools package to automate this in the code
 
 ```{r reg_gini, echo = T}
 
@@ -567,9 +558,9 @@ tab_model(m1t, m2t, m3t, m4t, m5t, p.style = "stars", p.threshold = c(0.10, 0.05
 Conf_delta (new cases) measures a type of information the public and media consumes, it is actually a cause of a lower increase ratio of infection, probably because having awareness of a high infection increase leads to behavioral and policy changes. 
 
 
-#### Additional Table. Infection Increase as DV, May 1 - May 31
+#### Additional Table. Infection Increase as DV
 
-These are the analyses that lead to Table 2. Here OLS is our 'first run', but it is biased because it cannot estimate mediation effects and therefore M40-M43 (and M50-M53 with top 1%) are the preferred models due to maximum-likelihood estimation.
+These are the OLS analyses that mirror those in Table 2, but without ML simultaneous estimation. Here OLS is our 'first run', but it is biased because it cannot estimate mediation effects and therefore M40-M43 (and M50-M53 with top 1%) are the preferred models due to maximum-likelihood estimation.
 
 ```{r reg2rate_3}
 m21 <- lm(rate_2 ~ days_since_peak + conf_delta + gov_resp , data = df)
@@ -787,7 +778,8 @@ summary(m43fit, fit.measures = T)
 standardizedsolution(m43fit)
 ```
 
-##### M43 for prediction/calculation
+
+#### M43 for prediction/calculation
 
 This strategy follows Hayes and Preacher (2010). The effect is non-linear meaning that it is heterogeneous. There is no single value of the income inequality effect. Hayes and Preacher (2010) suggest estimating an **instantaneous indirect effect** which is actually based on derivatives and then can be plotted as different effects at different levels.
 
@@ -807,7 +799,7 @@ The only problem is that the effect of X includes a squared term, this squared t
 
 Also, to get predicted instantaneous indirect effect we need to remove the covariance of concern_self and gini_disp2 from contaminating the estimates. We fixed gini_disp2 to zero in the equation for concern_self, thus the algorithm find every other possible way to explain this residual correlation before letting it fall into the residual. This likely skews the results, therefore, for prediction purposes we allow all of this correlation to simply fall into the residual thus alighing the instantaneous indirect effect with the predicted values of rate_2
 
-```{r sem43_pred}
+```{r sem43_pred, warning = F, message = F}
 m43p <- '   # direct effect
              rate_2 ~ c1*gini_dispR + c2*gini_disp2 + w11*days_since_peak + w12*conf_delta + w13*gov_resp 
            # mediator
@@ -881,7 +873,9 @@ m43pfit <- sem(m43p, data = df, meanstructure = T)
 
 ```
 
-#### Table 2. Hack Tab_Model to Make Identical SEM Tables
+#### Table 2. Main Models
+
+We used an html template from tab_model command and hand edited the values to produce a table that was visually identical to Table 1. Automation would be ideal here, but we double checked the scores.
 
 ```{r tab_sem, results = 'hide'}
 # set up frames
@@ -949,7 +943,7 @@ kable(semfits)
 To create a table identical to the tab_model table we adjust the html code by hand, but hopefully we can automate this in the future.
 
 ```{r table2}
-knitr::include_graphics(wdir("second_study/Tbl2.html"))
+knitr::include_graphics(wdir("second_study/Tbl2.png"))
 ```
 
 
@@ -1011,7 +1005,7 @@ ggplot(data = m43mat, aes(x = X_gini)) +
                   arrow = arrow(length = unit(0.2, "cm"), type = "closed"), colour = "darkgoldenrod4") +
   geom_segment(aes(x = 31.5, y = 1.7, xend = 32.5, yend = 1.7),
                   arrow = arrow(length = unit(0.2, "cm"), type = "closed"), colour = "darkgoldenrod4") +
-  scale_color_manual(name = "", labels = c("a" = "Infection Increase (Y)\nMay 1st to May 31st\nratio, predicted", "c" = "Instantaneous\nIndirect Effect\n(rate of change)" , "b" = "Risk Perceptions (M)\nApril, 2020\npredicted"), values = c("a" = "red", "b" = "blue", "c" = "darkgoldenrod4")) +
+  scale_color_manual(name = "", labels = c("a" = "Infection Increase (Y)\nMay 1st to May 31st\nratio, predicted", "c" = "Instantaneous\nIndirect Effect\n(rate of change)" , "b" = "Risk Perceptions (M)\nApril, 2020\npredicted, centered"), values = c("a" = "red", "b" = "blue", "c" = "darkgoldenrod4")) +
   scale_x_continuous(breaks = c(25,30,35,40,45,50), expand = c(0,0)) +
   scale_y_continuous(breaks = c(-1,-0.5,0,0.5,1,1.5,2), limits = c(-1,2), expand = c(0,0)) +
   labs(x = "Disposable Income Inequality (X), gini",y = "Estimate") +
@@ -1041,11 +1035,11 @@ We know that there is a risk of random sampling variation causing disturbance to
 
 Get rid of earlier sampling robustness exercise and just do it here for both.
 
-#### Robustness of Coefficients to Sampling Variation. Simulating Plausible Alternative Values for Country-Means
+#### Robustness of Mediation Effect to Sampling. Simulating Plausible Alternative Values for Country-Means
 
 The confidence interval of our regression estimates is based on a sampling distribution across countries, but we have a potentially large source of uncertainty within countries due to the use of an online survey and some very small samples. The online survey problem cannot be solved directly through bootstrapping, but we can asses the robustness of our estimates using the within-country uncertainty. 
 
-There are many countries with small sample sizes (we excluded those with under 20) ranging from 20-50 whereas there are many other countries with over 5,000. This makes for quite an asymmetry in standard error, i.e., the uncertainty associated with each country's mean. Therefore, we bootstrap the estimates by generating random data that follow a normal distribution for each country based on the standard error. Then we run the analysis on each dataset to generate a confidence interval for our estimates that incorporates the within-country standard error of the mean.
+We 'bootstrap' the estimates by generating random data that follow a normal distribution for each country based on the standard error. Then we run the analysis on each dataset to generate a confidence interval for our estimates that incorporates the within-country standard error of the mean.
 
 ```{r robust_sim, message = F, warning = F, include = F}
 # The standard error takes into account the sample size, so now we create a simulation standard deviation based on the standard error leading to variation in means across 1000 simulations and a normal distribution.
@@ -1178,7 +1172,7 @@ rm(fit.list, model.list)
 ```
 751-1500
 
-```{r fitlist, message = F, warning = F}
+```{r fitlist2, message = F, warning = F}
 
 # 
 for (i in 751:1500) {
@@ -1215,7 +1209,7 @@ rm(fit.list, model.list)
 
 1501-2000
 
-```{r fitlist, message = F, warning = F}
+```{r fitlist3, message = F, warning = F}
 
 # 
 for (i in 1501:2000) {
@@ -1263,12 +1257,14 @@ rob <- rbind(rob1, rob2, rob3)
 
 rob[3,1] <- rob[2,1]/sqrt(2000)
 rob[3,2] <- rob[2,2]/sqrt(2000)
-
-
+m43slope <- (m43pfit@ParTable[["est"]][73]-m43pfit@ParTable[["est"]][72])/(.5 - .475)
+m43yint <- m43pfit@ParTable[["est"]][73] - m43slope*.5
+m43xint <- (-m43yint/m43slope)*100
+m43slope <- m43slope/100
 
 ```
 
-For the instantaneous indirect effects, the robust mean slope is `r rob[1,1]` with a standard error of `r rob[3,1]` and the robust mean intercept is `r rob[1,2]` with a standard error of `r rob[3,2]`
+For the instantaneous indirect effects, the robust mean slope is `r rob[1,1]` with a standard error of `r rob[3,1]` and the robust mean intercept is `r rob[1,2]` with a standard error of `r rob[3,2]`. Original slope is `r m43slope` and x-int `r m43xint`
 
 ## References
 
