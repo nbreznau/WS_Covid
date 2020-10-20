@@ -21,9 +21,6 @@ Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Ti
 
 
 ```{r setup}
-
-rm(list = ls(all = T))
-
 wd <- "C:/Github" #set your working directory here
 
 wdir <- function(x){
@@ -33,38 +30,54 @@ wdir <- function(x){
 
 # need pacman package installed to run this
 # install.packages("pacman")
-pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl","foreign", "countrycode")
+pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","psych","lavaan","kableExtra","ggrepel","stringi","margins","readxl", "countrycode","haven")
 
 ```
 
 
 ```{r load_prep, message = F, warning = F}
-# COVID Disorder Tracker
-distrack <- read_xlsx(wdir("COVIDiSTRESS/coronavirus_Aug01.xlsx")) 
+
+# Breznau 2020
+load(file = wdir("SPR33/cis2.Rdata"))
+rm(list = setdiff(ls(), "finaldf_Ca"))
+
+
+wd <- "C:/Github" #set your working directory here
+wdir <- function(x){
+  paste(wd,x, sep = "/")
+}
+
+# COVID-19 Survey
+
+betrack <- read_dta(wdir("SPR33/GlobalBehaviorsPerceptions_Data_May21_2020.dta")) 
 
 # government response
-gov_resp <- read.csv(file = wdir("COVIDiSTRESS/covid-stringency-index.csv"), header = T)
+gov_resp <- read.csv(file = wdir("SPR33/OxCGRT_latest.csv"), header = T)
 
-# income concentration
-top_inc <- read_xlsx(wdir("COVIDiSTRESS/WID_Data_14082020-111941.xlsx"))
 
 # ISSP RoG
-issp06 <- foreign::read.dta(wdir("ZA4700.dta"), convert.factors = F)
-issp16 <- foreign::read.dta(wdir("ZA6900_v2-0-0.dta"), convert.factors = F)
+issp06 <- read_dta(wdir("ZA4700.dta"))
+issp16 <- read_dta(wdir("ZA6900_v2-0-0.dta"))
 
 # Solt Gini
-load(wdir("COVIDiSTRESS/swiid8_3.Rda"))
+load(wdir("SPR33/swiid8_3.Rda"))
 
-# NOTE: ISSP has only 32 countries 
+
 ```
 
-```{r clean_distrack, include = F}
-colnames(distrack) <- tolower(colnames(distrack))
-distrack <- distrack %>%
-  filter(event_type != "Strategic developments") %>%
+```{r clean_betrack, include = F}
+betrack <- betrack %>%
   mutate(
-    cname = countrycode(country, "country.name","iso3n", nomatch =  NULL)
-  )
+    cow = countrycode(iso2c, origin = "iso2c", destination = "cown"),
+    stay = beh_stayhome/20,
+    gather = beh_socgathering/20,
+    distance = beh_distance/20,
+    tsymp = beh_tellsymp/20,
+    hwash = beh_handwash/20
+  ) %>%
+  select(cow, date, stay, gather, distance, tsymp, hwash) 
+
+betrack_av <- round(aggregate(betrack[,-2], by = list(betrack$cow), FUN = mean, na.rm = T),2)
 
 ```
 
@@ -72,136 +85,170 @@ distrack <- distrack %>%
 
 ```{r clean_issp, include = F}
 
-
 # recode all questions so that higher values indicate support for government intervention
-issp06 <- issp06 %>%
-  mutate(
-    cut_spend = car::recode(v7, '"8"=NA;"9"=NA'),
-    spend_jobs = car::recode(v8, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-    reg_biz = car::recode(v9, '"8"=NA;"9"=NA'),
-    sup_ind = car::recode(v10, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-    sup_ind2 = car::recode(v11, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-    gov_jobs = car::recode(v21, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_prices = car::recode(v22, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_health = car::recode(v23, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_old = car::recode(v24, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_ind3 = car::recode(v25, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_unemp = car::recode(v26, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_incd = car::recode(v27, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_house = car::recode(v29, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_laws = car::recode(v30, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil = car::recode(v38, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil2 = car::recode(v39, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_open = car::recode(v40, '10=5;9=4.5;8=4;7=3.5;6=3.5;5=3;4=2.5;3=2.5;2=2;1=1.5;0=1;else=NA'),
-    gov_secure = car::recode(v41, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_detain = car::recode(v43, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil3 = car::recode(v44, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil4 = car::recode(v45, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_nosay = car::recode(v7, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-  )
+# colnames(issp06) <- tolower(colnames(issp06))
+# issp06 <- issp06 %>%
+#   mutate(
+#     cut_spend = car::recode(as.numeric(v11), '8=NA;9=NA'),
+#     spend_jobs = car::recode(as.numeric(v12), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+#     reg_biz = car::recode(as.numeric(v13), '8=NA;9=NA'),
+#     sup_ind = car::recode(as.numeric(v14), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+#     sup_ind2 = car::recode(as.numeric(v15), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+#     gov_jobs = car::recode(as.numeric(v25), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_prices = car::recode(as.numeric(v26), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_health = car::recode(as.numeric(v27), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_old = car::recode(as.numeric(v28), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_ind3 = car::recode(as.numeric(v29), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_unemp = car::recode(as.numeric(v30), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_incd = car::recode(as.numeric(v31), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_house = car::recode(as.numeric(v33), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_laws = car::recode(as.numeric(v34), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_detain = car::recode(as.numeric(v41), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_surveil3 = car::recode(as.numeric(v42), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_surveil4 = car::recode(as.numeric(v43), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+#     gov_nosay = car::recode(as.numeric(v45), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+#     cntry = as.numeric(v3a),
+#     cow = countrycode(cntry, origin = "iso3n", destination = "cown"),
+#     wave = 2006
+#   )%>%
+#   arrange(cow)
 
 issp16 <- issp16 %>%
   mutate(
-    cut_spend = car::recode(v7, '"8"=NA;"9"=NA'),
-    spend_jobs = car::recode(v8, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-    reg_biz = car::recode(v9, '"8"=NA;"9"=NA'),
-    sup_ind = car::recode(v10, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-    sup_ind2 = car::recode(v11, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-    gov_jobs = car::recode(v21, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_prices = car::recode(v22, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_health = car::recode(v23, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_old = car::recode(v24, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_ind3 = car::recode(v25, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_unemp = car::recode(v26, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_incd = car::recode(v27, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_house = car::recode(v29, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_laws = car::recode(v30, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil = car::recode(v38, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil2 = car::recode(v39, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_open = car::recode(v40, '10=5;9=4.5;8=4;7=3.5;6=3.5;5=3;4=2.5;3=2.5;2=2;1=1.5;0=1;else=NA'),
-    gov_secure = car::recode(v41, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_detain = car::recode(v43, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil3 = car::recode(v44, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_surveil4 = car::recode(v45, '1=5;2=4;8=3;3=2;4=1;else=NA'),
-    gov_nosay = car::recode(v7, '1=5;2=4;3=3;4=2;5=1;else=NA'),
-  )
-
-# check measurement invariance
-
-
-# create average gov intervention score
-issp16df <- select(issp16, cow, cut_spend:gov_nosay)
-issp16df$gov_intv <- rowMeans(issp16df[,-1], na.rm=T)
-
-# make a second - inequality related only - scale
-issp16df$gov_ineq <- rowMeans(issp16df[,c(3,7,9,12,13)], na.rm =T)
-
-# create an authoritarian scale (just the surveillance items), maybe this is more the type of 'intervention' we want to measure
+    cut_spend = car::recode(as.numeric(v7), '8=NA;9=NA'),
+    spend_jobs = car::recode(as.numeric(v8), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+    reg_biz = car::recode(as.numeric(v9), '8=NA;9=NA'),
+    sup_ind = car::recode(as.numeric(v10), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+    sup_ind2 = car::recode(as.numeric(v11), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+    gov_jobs = car::recode(as.numeric(v21), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_prices = car::recode(as.numeric(v22), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_health = car::recode(as.numeric(v23), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_old = car::recode(as.numeric(v24), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_ind3 = car::recode(as.numeric(v25), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_unemp = car::recode(as.numeric(v26), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_incd = car::recode(as.numeric(v27), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_house = car::recode(as.numeric(v29), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_laws = car::recode(as.numeric(v30), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_surveil = car::recode(as.numeric(v38), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_surveil2 = car::recode(as.numeric(v39), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_open = car::recode(as.numeric(v40), '10=5;9=4.5;8=4;7=3.5;6=3.5;5=3;4=2.5;3=2.5;2=2;1=1.5;0=1;else=NA'),
+    gov_secure = car::recode(as.numeric(v41), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_detain = car::recode(as.numeric(v43), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_surveil3 = car::recode(as.numeric(v44), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_surveil4 = car::recode(as.numeric(v45), '1=5;2=4;8=3;3=2;4=1;else=NA'),
+    gov_nosay = car::recode(as.numeric(v47), '1=5;2=4;3=3;4=2;5=1;else=NA'),
+    cntry = as.numeric(country),
+    cow = countrycode(cntry, origin = "iso3n", destination = "cown"),
+    wave = 2016
+  )%>%
+  arrange(cow)
 
 
-issp16dfa <- aggregate(issp16df, by = list(issp16df$cow), FUN = mean, na.rm = T)
+issp16df <- select(issp16, cow, wave, cut_spend:gov_nosay)
+# issp06df <- select(issp06, cow, wave, cut_spend:gov_nosay)
+# df_issp <- merge(issp16df, issp06df, all = TRUE)
 
-issp16dfa <- dplyr::select(issp16dfa, cow, gov_intv, gov_ineq)
+# surveil variables are all in issp16 so we do not really need to use issp06
 
-rm(issp16)
+issp16_meain <- issp16df[complete.cases(issp16df),]
+
+
+# check measurement invariance - ISSP 2016
+meaInmod <- "
+  intervene =~ cut_spend + spend_jobs + reg_biz + sup_ind + sup_ind2 + gov_jobs + gov_prices + gov_health + gov_old + gov_ind3 + gov_unemp + gov_incd + gov_house + gov_laws + gov_surveil + gov_surveil2 + gov_open + gov_secure + gov_detain+ gov_surveil3 + gov_surveil4 + gov_nosay 
+"
+configural <- cfa(model = meaInmod, data = issp16_meain, group = "cow")
+fitmeasures(configural)
+
+# Hung: no measurement invariance at the configural level when pooling all variables together. 
+# Now take only questions about government's inteverntion in unlikely events (public security, national security, terrorist act). THese questions only exists in issp16
+
+
+meaInmod2 <- " 
+  intervene_security =~ gov_surveil + gov_surveil2 + gov_secure 
+"
+configural2 <- cfa(model = meaInmod2, data = issp16_meain)
+summary(configural2,standardized = TRUE, fit.measures = TRUE)
+
+configural2.a <- cfa(model = meaInmod2, data = issp16_meain, group = "cow")
+fitmeasures(configural2)
+
+metric <- cfa(model = meaInmod2, data = issp16_meain, group = "cow", group.equal = "loadings")
+fitmeasures(metric)
+
+
+
+meaInmod3 <- " 
+  intervene_econ =~ gov_jobs + gov_prices + gov_health + gov_old + gov_unemp 
+"
+
+configural3 <- cfa(model = meaInmod3, data = issp16_meain, group = "cow")
+fitmeasures(configural3)
+
+
+# create an authoritarian scale (just the surveillance items), maybe this is more the type of 'intervention' we want to measure. It is also the only one with measurement invariance at the configural level.
+
+issp16df$gov_author <- round(rowMeans(select(issp16df, gov_surveil, gov_surveil2, gov_secure), na.rm=T),2)
+
+# alternatively, make an intervention scale 
+
+issp16df$gov_int <- round(rowMeans(select(issp16df, gov_surveil, gov_surveil2, gov_secure,
+                                          gov_jobs, gov_prices, gov_health, gov_old,
+                                          gov_unemp), na.rm = T))
+
+
+
+
+issp16dfa <- round(aggregate(issp16df, by = list(issp16df$cow), FUN = mean, na.rm = T),2)
+
+issp16dfa <- dplyr::select(issp16dfa, cow, gov_author, gov_int)
+
 
 ```
+
+```{r meaInbetrack}
+## Measurement invariance - betrack
+
+betrack_complete <- betrack[complete.cases(betrack),]
+betrack_complete <- betrack_complete[which(betrack_complete$cow %in% issp16df$cow),]
+betrack_complete <- betrack_complete[-which(betrack_complete$cow == 115),]
+meaInmod4 <- "
+  behave =~ stay + gather + distance
+"
+configural4 <- cfa(model = meaInmod4, data = betrack_complete)
+configural4b <- cfa(model = meaInmod4, data = betrack_complete, group = "cow", estimator = "GLS")
+summary(configural4b)
+
+```
+
 
 ```{r clean_blavatnik, warning = F, message = F}
+## turn interger to date
+gov_resp <- gov_resp %>%
+  mutate(
+    date = as.Date(as.character(Date), "%Y%m%d"),
+    chi = ContainmentHealthIndex/20,
+    cow = countrycode(CountryName, origin = "country.name", destination = "cown")
+  ) %>%
+  filter(date > "2020-03-15" & date < "2020-03-31" & cow %in% issp16dfa$cow) %>%
+  select(CountryName, date, chi)
 
-# select measures as of end of March (start of the survey period)
+gov_resp <- aggregate(x = gov_resp[,-2], by = list(gov_resp$CountryName), FUN = mean)
 
-gov_resp <- subset(gov_resp, Date == "24-Mar-20")
-gov_resp$cow <- countrycode(gov_resp$Entity, "country.name", "cown")
+gov_resp <- gov_resp %>%
+  mutate(
+    cname = Group.1,
+    cow = countrycode(cname, origin = "country.name", destination = "cown"), 
+    chi = round(chi,2)
+  ) %>% 
+  select(cow, chi) %>%
+  arrange(cow)
 
-colnames(gov_resp) <- c("1","2","3","gov_resp","cow")
-
-
-
-# select countries
-gov_resp <- gov_resp[gov_resp$cow %in% countries, ]
-
-# impute Grenada, Malta and N Macedonia (using Wikipedia info)
-# Grenada, strong lockdown, very few cases. Score = 87
-# Malta, moderate measures. Score = 70
-# N Macedonia, very strong, near total lockdown. Score = 93
-gov_resp[72,1] <- 55
-gov_resp[72,2] <- 87
-
-gov_resp[73,1] <- 338
-gov_resp[73,2] <- 70
-
-gov_resp[74,1] <- 343
-gov_resp[74,2] <- 93
-
-gov_resp <- select(gov_resp, cow, gov_resp)
-
+testdf <- left_join(issp16dfa, gov_resp, by = "cow")
+testdf$discrep <- testdf$chi - testdf$gov_author
 ```
 
-
-```{r clean_ineq, message = F, warning = F}
-top_inc <- top_inc %>%
-  mutate(cow = countrycode(Country, "country.name", "cown"))
-
-top_inc1 <- subset(top_inc, top_inc$Percentile == "p99p100")
-top_inc2 <- subset(top_inc, top_inc$Percentile == "p90p100")
-top_inc1 <- subset(top_inc1, !is.na(top_inc1$cow))
-top_inc2 <- subset(top_inc2, !is.na(top_inc2$cow))
-
-# Take the mean from 2010-2019 to account for missing data
-top_inc1 <- top_inc1[,c(13:22,23)]
-top_inc2 <- top_inc2[,c(3:12,23)]
-top_inc1$top1 <- rowMeans(top_inc1[,1:10], na.rm = T)
-top_inc2$top10 <- rowMeans(top_inc2[,1:10], na.rm = T)
-top_inc1 <- select(top_inc1, cow, top1)
-top_inc2 <- select(top_inc2, cow, top10)
-# china appears multiple times
-top_inc1 <- aggregate(top_inc1, by = list(top_inc1$cow), FUN = mean, na.rm = T)
-top_inc2 <- aggregate(top_inc2, by = list(top_inc2$cow), FUN = mean, na.rm = T)
-rm(top_inc)
-
-```
-
+Income Inequality 
 
 ```{r clean_solt, warning = F, message = F}
 rm(swiid)
@@ -226,26 +273,38 @@ rm(swiid_summary)
 
 ```
 
+
 ```{r merge_clean}
+betrack_av <- betrack_av %>% 
+    filter(cow %in% issp16dfa$cow) %>%
+    select(cow, stay, gather, distance, tsymp, hwash)
+finaldf_Ca <- filter(finaldf_Ca, cow %in% issp16dfa$cow)
 
 df <- left_join(finaldf_Ca, gov_resp, by = "cow")
-df <- left_join(df, gini_disp, by = "cow")
+df <- left_join(df, betrack_av, by = "cow")
 df <- left_join(df, issp16dfa, by = "cow")
-df <- left_join(df, top_inc1, by = "cow")
-df <- left_join(df, top_inc2, by = "cow")
+df <- left_join(df, gini_disp, by = "cow")
 
-# fix Argentina and Indonesia (last top1 observation was 2004)
-df$top1 <- ifelse(df$cow == 160, .168, ifelse(df$cow == 850, .085, df$top1))
+df <- df %>%
+  mutate(
+    regime = case_when(
+      
+    )
+  )
 
-# take Government Response to pandemic as residuals after predicting what the response should be given the severity of the local outbreak
 
-mR <- lm(gov_resp ~ days_since_peak, conf_delta, data = df)
+
 
 ```
 
 
+## Now start with some descriptive statistics 
+
+
+
+
 ```{r corrs}
-cor <- select(df, concern_self, days_since_peak, conf_delta, gov_resp, intervention, gini_disp, top1, socpolicy, gdp)
+cor <- select(df, concern_self, days_since_peak, conf_delta, gov_resp, stay, gini_disp, top1, socpolicy, gdp)
 f1 <- cor(cor, use = "pairwise.complete.obs")
 
 
@@ -307,7 +366,7 @@ ggplot(df, aes(y=concern_self, x=gov_resp)) +
 ```{r adjusted_risk}
 
 # adjust risk for severity of outbreak
-m1 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp, data = df)
+m1 <- lm(concern_self ~ days_since_peak + conf_delta + chi, data = df)
 
 # predicted values
 df$m1p <- predict.lm(m1, df)
@@ -358,6 +417,7 @@ ggplot(df, aes(y=m1r, x=socpolicy)) +
 #   
 ```
 
+
 ```{r plot8}
 
 
@@ -388,22 +448,87 @@ ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
 ```
 
 
-```{r reg}
+## Question 1
+```{r }
+
+m11 <- lm(chi ~ days_since_peak + conf_delta + gov_author , data = df)
+
+m12 <- lm(chi ~ days_since_peak + conf_delta + gov_author + gini_disp, data = df)
+
+m13 <- lm(chi ~ days_since_peak + conf_delta + gov_author + socpolicy, data = df)
+
+m14 <- lm(chi ~ days_since_peak + conf_delta + gov_author + gdp, data = df)
+
+m15 <- lm(chi ~ days_since_peak + conf_delta + gov_author + gini_disp + socpolicy + gdp, data = df)
+
+tab_model(m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+```
+
+
+## Question 2
+
+```{r q2reg}
 
 # m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
+m21 <- lm(stay ~ days_since_peak + conf_delta + discrep, data = df)
 
-m2 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp, data = df)
+m22 <- lm(stay ~ days_since_peak + conf_delta + discrep + gini_disp, data = df)
 
-m3 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + socpolicy, data = df)
+m23 <- lm(stay ~ days_since_peak + conf_delta + discrep + socpolicy, data = df)
 
-m4 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gdp, data = df)
+m24 <- lm(stay ~ days_since_peak + conf_delta + discrep + gdp, data = df)
 
-m5 <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp + gini_disp + socpolicy + gdp, data = df)
+m25 <- lm(stay ~ days_since_peak + conf_delta + discrep + gini_disp + socpolicy + gdp, data = df)
 
-tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5","M6"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m21, m22, m23, m24, m25, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"),show.std = TRUE)
 ```
+
+```{r q2reg2}
+
+# m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
+m21b <- lm(gather ~ days_since_peak + conf_delta + chi, data = df)
+
+m22b <- lm(gather ~ days_since_peak + conf_delta + chi + gini_disp, data = df)
+
+m23b <- lm(gather ~ days_since_peak + conf_delta + chi + socpolicy, data = df)
+
+m24b <- lm(gather ~ days_since_peak + conf_delta + chi + gdp, data = df)
+
+m25b <- lm(gather ~ days_since_peak + conf_delta + chi + gini_disp + socpolicy + gdp, data = df)
+
+tab_model(m21b, m22b, m23b, m24b, m25b, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5","M6"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+```
+
+```{r q2reg3}
+
+# m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
+m21c <- lm(distance ~ days_since_peak + conf_delta + chi, data = df)
+
+m22c <- lm(distance ~ days_since_peak + conf_delta + chi + gini_disp, data = df)
+
+m23c <- lm(distance ~ days_since_peak + conf_delta + chi + socpolicy, data = df)
+
+m24c <- lm(distance ~ days_since_peak + conf_delta + chi + gdp, data = df)
+
+m25c <- lm(distance ~ days_since_peak + conf_delta + chi + gini_disp + socpolicy + gdp, data = df)
+
+tab_model(m21c, m22c, m23c, m24c, m25c, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5","M6"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+```
+
+
+```{r mediation}
+mod2 <- "
+  # indirect effects
+  # direct effects
+  
+"
+```
+
 
 ```{r std_reg}
 tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
 ```
+
+
+
 
