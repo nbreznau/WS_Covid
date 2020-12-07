@@ -21,10 +21,8 @@ Solt, Frederick. 2020. "Measuring Income Inequality Across Countries and Over Ti
 
 
 ```{r setup}
-wd <- "C:/Github" #set your working directory here
-
 wdir <- function(x){
-  paste(wd,x, sep = "/")
+  paste(getwd(),x, sep = "/")
 }
 
 
@@ -36,36 +34,31 @@ pacman::p_load("dplyr","countrycode","car","ggplot2","jtools","sjPlot","sjmisc",
 
 
 ```{r load_prep, message = F, warning = F}
-## Breznau 2020
-
-load(wdir("SPR33/cis2.RData"))
-rm(list = setdiff(ls(),"finaldf_Ca"))
-
-wd <- "C:/Github" 
-
-wdir <- function(x){
-  paste(wd,x, sep = "/")
-}
 
 # COVID-19 Survey
 
-betrack <- read_dta(wdir("SPR33/GlobalBehaviorsPerceptions_Data_May21_2020.dta")) 
+betrack <- read_dta(wdir("data/GlobalBehaviorsPerceptions_Data_May21_2020.dta")) 
 
 # government response
-gov_resp <- read.csv(file = wdir("SPR33/OxCGRT_latest.csv"), header = T)
+gov_resp <- read.csv(file = wdir("data/OxCGRT_latest.csv"), header = T)
 
 
 # ISSP RoG
-issp06 <- read_dta(wdir("ZA4700.dta"))
-issp16 <- read_dta(wdir("ZA6900_v2-0-0.dta"))
+issp16 <- read_dta(wdir("data/ZA6900_v2-0-0.dta"))
 
 # Solt Gini
-load(wdir("SPR33/swiid8_3.Rda"))
-
+swiid <- load(wdir("data/swiid9_0.rda"))
 
 # Death per million
 
-covid <- read.csv(file = wdir("SPR33/owid-covid-data.csv"), header = T)
+covid <- read.csv(file = wdir("data/owid-covid-data.csv"), header = T)
+
+## GDP per capita (2019)
+gdp <- read.csv(file = wdir("data/GDP per capita WB.csv"), header = T,skip = 4)
+
+## Social Spending 
+
+socp <- read_xlsx(wdir("data/54614.xlsx"), skip = 5, sheet = 1)
 
 ```
 
@@ -73,32 +66,6 @@ covid <- read.csv(file = wdir("SPR33/owid-covid-data.csv"), header = T)
 ```{r clean_issp, include = F}
 
 # recode all questions so that higher values indicate support for government intervention
-# colnames(issp06) <- tolower(colnames(issp06))
-# issp06 <- issp06 %>%
-#   mutate(
-#     cut_spend = car::recode(as.numeric(v11), '8=NA;9=NA'),
-#     spend_jobs = car::recode(as.numeric(v12), '1=5;2=4;3=3;4=2;5=1;else=NA'),
-#     reg_biz = car::recode(as.numeric(v13), '8=NA;9=NA'),
-#     sup_ind = car::recode(as.numeric(v14), '1=5;2=4;3=3;4=2;5=1;else=NA'),
-#     sup_ind2 = car::recode(as.numeric(v15), '1=5;2=4;3=3;4=2;5=1;else=NA'),
-#     gov_jobs = car::recode(as.numeric(v25), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_prices = car::recode(as.numeric(v26), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_health = car::recode(as.numeric(v27), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_old = car::recode(as.numeric(v28), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_ind3 = car::recode(as.numeric(v29), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_unemp = car::recode(as.numeric(v30), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_incd = car::recode(as.numeric(v31), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_house = car::recode(as.numeric(v33), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_laws = car::recode(as.numeric(v34), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_detain = car::recode(as.numeric(v41), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_surveil3 = car::recode(as.numeric(v42), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_surveil4 = car::recode(as.numeric(v43), '1=5;2=4;8=3;3=2;4=1;else=NA'),
-#     gov_nosay = car::recode(as.numeric(v45), '1=5;2=4;3=3;4=2;5=1;else=NA'),
-#     cntry = as.numeric(v3a),
-#     cow = countrycode(cntry, origin = "iso3n", destination = "cown"),
-#     wave = 2006
-#   )%>%
-#   arrange(cow)
 
 issp16 <- issp16 %>%
   mutate(
@@ -132,54 +99,36 @@ issp16 <- issp16 %>%
 
 
 issp16df <- select(issp16, cow, wave, cut_spend:gov_nosay)
-# issp06df <- select(issp06, cow, wave, cut_spend:gov_nosay)
-# df_issp <- merge(issp16df, issp06df, all = TRUE)
-
-# surveil variables are all in issp16 so we do not really need to use issp06
 
 issp16_meain <- issp16df[complete.cases(issp16df),]
 
 
 # check measurement invariance - ISSP 2016
-meaInmod <- "
-  intervene =~ cut_spend + spend_jobs + reg_biz + sup_ind + sup_ind2 + gov_jobs + gov_prices + gov_health + gov_old + gov_ind3 + gov_unemp + gov_incd + gov_house + gov_laws + gov_surveil + gov_surveil2 + gov_open + gov_secure + gov_detain+ gov_surveil3 + gov_surveil4 + gov_nosay 
-"
-configural <- cfa(model = meaInmod, data = issp16_meain, group = "cow")
-fitmeasures(configural)
+# Take questions about government's inteverntion in unlikely events (public security, national security, terrorist act). These questions only exist in issp16
 
-# Hung: no measurement invariance at the configural level when pooling all variables together. 
-# Now take only questions about government's inteverntion in unlikely events (public security, national security, terrorist act). THese questions only exists in issp16
-
-meaInmod2a <- " 
-  intervene_security =~ gov_surveil + gov_surveil2 + gov_secure" 
+meaInmod1a <- " 
+  preference =~ gov_surveil + gov_surveil2 + gov_secure" 
  
-meaInmod2b <- " 
+meaInmod1b <- " 
   intervene_security =~ 1*gov_surveil + 1.174*gov_surveil2 + 0.933*gov_secure 
   gov_surveil2 ~~ c(a,a,a,b,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a)*gov_secure
 "
 
-cfa2 <- cfa(model = meaInmod2a, data = issp16_meain)
-summary(configural2,standardized = TRUE, fit.measures = TRUE)
+cfa <- cfa(model = meaInmod1a, data = issp16_meain)
+summary(cfa,standardized = TRUE, fit.measures = TRUE)
 
-configural2a <- cfa(model = meaInmod2, data = issp16_meain, group = "cow")
-fitmeasures(configural2)
+configural1a <- cfa(model = meaInmod1a, data = issp16_meain, group = "cow")
+fitmeasures(configural1a)
 
-metric2a <- cfa(model = meaInmod2a, data = issp16_meain, group = "cow", group.equal = "loadings")
-fitmeasures(metric2a)
+metric1a <- cfa(model = meaInmod1a, data = issp16_meain, group = "cow", group.equal = "loadings")
+fitmeasures(metric1a)
 
-metric2b <- cfa(model = meaInmod2b, data = issp16_meain, group = "cow")
-fitmeasures(metric2b)
-
-
-meaInmod3 <- " 
-  intervene_econ =~ gov_jobs + gov_prices + gov_health + gov_old + gov_unemp 
-"
-
-configural3 <- cfa(model = meaInmod3, data = issp16_meain, group = "cow")
-fitmeasures(configural3)
+metric1b <- cfa(model = meaInmod1b, data = issp16_meain, group = "cow")
+fitmeasures(metric1b)
 
 
-# create an authoritarian scale (just the surveillance items), maybe this is more the type of 'intervention' we want to measure. It is also the only one with measurement invariance at the configural level.
+
+# create an authoritarian scale (just the surveillance items), maybe this is more the type of 'intervention' we want to measure. 
 
 
 issp16_meain$gov_author <- round((issp16_meain$gov_surveil +
@@ -198,6 +147,7 @@ issp16dfa <- dplyr::select(issp16dfa, cow, gov_author)
 ```
 
 
+## Data cleaning - COVID deaths
 
 ```{r clean covid}
 covid <- covid %>%
@@ -232,7 +182,7 @@ dpm_stage2 <- select(dpm_stage2, cow, dpm2)
 
 
 
-
+## Data cleaing - Behaviors 
 
 ```{r clean_betrack, include = F}
 betrack <- betrack %>%
@@ -250,7 +200,7 @@ betrack <- betrack %>%
 ```
 
 
-
+## Measurement Invariance - Behaviors
 
 ```{r meaInbetrack}
 ## Measurement invariance - betrack
@@ -258,27 +208,29 @@ betrack <- betrack %>%
 betrack_complete <- betrack[complete.cases(betrack),]
 betrack_complete <- betrack_complete[which(betrack_complete$cow %in% issp16df$cow),]
 betrack_complete <- betrack_complete[-which(betrack_complete$cow == 115),]
-meaInmod4 <- "
+
+meaInmod2 <- "
   behave =~ stay + gather + distance
 "
-cfa4 <- cfa(model = meaInmod4, data = betrack_complete)
-configural4 <- cfa(model = meaInmod4, data = betrack_complete, group = "cow")
+cfa2 <- cfa(model = meaInmod2, data = betrack_complete)
+configural2 <- cfa(model = meaInmod2, data = betrack_complete, group = "cow")
 
-metric4a <- cfa(model = meaInmod4, data = betrack_complete, group = "cow", group.equal = "loadings")
-fitmeasures(metric4a)
+metric2a <- cfa(model = meaInmod2, data = betrack_complete, group = "cow", group.equal = "loadings")
+fitmeasures(metric2a)
 
-meaInmod4b <- "
+meaInmod2b <- "
     behave =~ 1*stay + 0.776*gather + 1.083*distance
     stay ~~ c(a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,b,a,a,a,a,a,a,a,a)*gather
 "
 
-metric4b <- cfa(model = meaInmod4b, data = betrack_complete, group = "cow")
+metric2b <- cfa(model = meaInmod2b, data = betrack_complete, group = "cow")
 
 betrack$behave <- round((betrack$stay + 0.776*betrack$gather + 1.083*betrack$distance)/3,2)
 betrack_av <- round(aggregate(betrack[,-2], by = list(betrack$cow), FUN = mean, na.rm = T),2)
 
 ```
 
+## Data cleaning - Blavatnik
 
 ```{r clean_blavatnik, warning = F, message = F}
 ## First stage: March 1st to March 15th
@@ -324,17 +276,40 @@ gov_resp2 <- gov_resp2 %>%
   select(cow, chi2) %>%
   arrange(cow)
 
+## For sensitivity analysis: March 15th to April 7th
+
+gov_resp3 <- gov_resp %>%
+  mutate(
+    date = as.Date(as.character(Date), "%Y%m%d"),
+    chi = ContainmentHealthIndex/20,
+    cow = countrycode(CountryName, origin = "country.name", destination = "cown")
+  ) %>%
+  filter(date > "2020-03-16" & date < "2020-04-07" & cow %in% issp16dfa$cow) %>%
+  select(CountryName, date, chi)
+
+gov_resp3 <- aggregate(x = gov_resp3[,-2], by = list(gov_resp3$CountryName), FUN = mean)
+
+gov_resp3 <- gov_resp3 %>%
+  mutate(
+    cname = Group.1,
+    cow = countrycode(cname, origin = "country.name", destination = "cown"), 
+    chi3 = round(chi,2)
+  ) %>% 
+  select(cow, chi3) %>%
+  arrange(cow)
+
+
 ```
 
-Income Inequality 
+## Income Inequality 
 
 ```{r clean_solt, warning = F, message = F}
-rm(swiid)
+rm (swiid)
 swiid_summary$cow <- countrycode(swiid_summary$country, "country.name", "cown")
 
 #some countries do not have data since 2016, take most recent available year
 swiid_summary <- swiid_summary %>%
-  mutate(year = ifelse(country == "Algeria" & year == 2011 | country == "Brunei" & year == 1981 | country == "Bosnia and Herzegovina" & year == 2015 | country == "Grenada" & year == 2008 | country == "Guatemala" & year == 2014 | country == "Iceland" & year == 2015 | country == "India" & year == 2012 | country == "Japan" & year == 2015 | country == "Morocco" & year == 2014 | country == "Pakistan" & year == 2015 | country == "Philippines" & year == 2015 | country == "South Africa" & year == 2015 | country == "United Arab Emirates" & year == 2008, 2016, year))
+  mutate(year = ifelse(country == "Algeria" & year == 2011 | country == "Brunei" & year == 1981 | country == "Bosnia and Herzegovina" & year == 2015 | country == "Grenada" & year == 2008 | country == "Guatemala" & year == 2014 | country == "Iceland" & year == 2015 | country == "India" & year == 2012 | country == "Japan" & year == 2015 | country == "Morocco" & year == 2014 | country == "Pakistan" & year == 2015 | country == "Philippines" & year == 2015 | country == "South Africa" & year == 2015 | country == "United Arab Emirates" & year == 2008 | country == "Venezuela" & year == 2015, 2016, year))
 
 # trim S. Africa
 swiid_summary$gini_disp <- ifelse(swiid_summary$country == "South Africa" & swiid_summary$year == 2016, 55, swiid_summary$gini_disp)
@@ -347,9 +322,52 @@ gini_disp <- select(swiid_summary, cow, gini_disp)
 rm(swiid_summary)
 
 
+```
+
+## GDP per capita
+
+```{r gdp, warning = F, message = F}
+
+gdp <- gdp %>%
+  mutate(
+    cow = countrycode(Country.Name, origin = "country.name", destination = "cown"),
+    gdp = X2019
+  ) %>%
+  filter(cow %in% issp16dfa$cow) %>% 
+  select(cow, gdp)
+
+## Impute data for Venezuela (IMF report, estimated)
+
+gdp[which(gdp$cow == 101),2] <- 2299.308
+
+## Impute Taiwan (also from IMF report)
+gdp[33,1] <- 713 
+gdp[33,2] <- 25873.37
 
 ```
 
+## Social Spending
+
+```{r cwed2, warning = F, message = F}
+socp <- socp %>%
+  mutate(
+    country = ...2,
+    soc_spend = round(...19,2)
+  ) %>%
+  select(country, soc_spend)
+
+socp <- socp[complete.cases(socp$soc_spend),]
+socp$cow <- countrycode(socp$country, "country.name","cown")
+socp <- socp %>%
+  filter(cow %in% issp16dfa$cow) %>%
+  select(cow, soc_spend)
+
+```
+
+
+
+
+## Merge data sets
 
 ```{r merge_clean}
 betrack_av <- betrack_av %>% 
@@ -359,262 +377,249 @@ betrack_av <- betrack_av %>%
 
 df <- left_join(issp16dfa, gov_resp1, by = "cow")
 df <- left_join(df, gov_resp2, by = "cow")
+df <- left_join(df, gov_resp3, by = "cow")
 df <- left_join(df, betrack_av, by = "cow")
 df <- left_join(df, gini_disp, by = "cow")
 df <- left_join(df, dpm_stage1, by = "cow")
 df <- left_join(df, dpm_stage2, by = "cow")
-
+df <- left_join(df, gdp, by = "cow")
+df <- left_join(df, socp, by = "cow")
 
 ## filter out suriname 
 df <- df[-which(df$cow==115),]
 
-## Add control variables
-finaldf_Ca <- finaldf_Ca %>%
-  filter(cow %in% issp16dfa$cow) 
-df <- left_join(df, finaldf_Ca, by = "cow")
 
 ## Create a discrepancy index
 
 df$discrep <- df$chi2 - df$gov_author
 
+df$discrep2 <- df$chi3 - df$gov_author
 
-
-
+df$discrep3 <- df$chi1 - df$gov_author
 
 ```
+
 
 
 ## Now start with some descriptive statistics 
 
+```{r desc}
+## Descriptive tables
+
+tab1 <- descr(df[,c(2:4,6,7:11,13)],show = c("n","mean", "sd","range", "NA.prc"))
+tab1[,1] <- c("Gov_Author", "Containtment Index - First stage", "Containment Index - Second Stage", "Behavior Index", "Gini", "Deaths per million - First stage", "Death per Million - Second Stage", "GDP", "Social Spending", "Discrepancy Index - Second Stage")
+colnames(tab1) <- c("Variable", "N", "Missing cases", "Mean", "SD", "Range")
+tab1[,c(4:5)] <- round(tab1[,c(4:5)],2)
+
+tab2 <- descr(issp16_meain[,c("gov_surveil","gov_surveil2","gov_secure")],show = c("n","mean", "sd", "NA.prc"))
+tab2[,1] <- c("Gov_Surveil", "Gov_Surveil2", "Gov_Secure")
+colnames(tab2) <- c("Variable", "N", "Missing cases", "Mean", "SD")
+
+tab2[,c(4:5)] <- round(tab2[,c(4:5)],2)
+
+tab3 <- descr(betrack_complete[,c("stay","gather","distance")],show = c("n","mean", "sd", "NA.prc"))
+tab3[,1] <- c("Stay Home", "Social Gather", "Keep Distance")
+colnames(tab3) <- c("Variable", "N", "Missing cases", "Mean", "SD")
+
+tab3[,c(4:5)] <- round(tab3[,c(4:5)],2)
+
+# install.packages("htmlTable")
+library(htmlTable)
+htmlTable(tab1,rnames = FALSE)
+
+## Figure A2
+
+# install.packages("semPlot")
+library(semPlot)
+agg_png(wdir("figures/figa2.png"), width = 1600, height = 900)
+semPaths(cfa, what = "std", layout = "tree", nodeLabels = c("gov_surv", "gov_surv2","gov_sec", "preference"),sizeLat = 14,sizeMan = 10, edge.color = "black",edge.label.cex = 0.9, nDigits = 3, rotation = 2)
+invisible(dev.off())
+
+## Figure A3
+agg_png(wdir("figures/figa3.png"), width = 1600, height = 900)
+semPaths(cfa2, what = "std", layout = "tree", nodeLabels = c("stay", "gather","distance", "behavior"),sizeLat = 14,sizeMan = 10, edge.color = "black",edge.label.cex = 0.9, nDigits = 3, rotation = 2)
+invisible(dev.off())
+
+
+## Figure 3 
+# install.packages("ragg")
+library(ragg)
+
+
+discrep <- c(df$discrep3, df$discrep)
+time <- c(rep("first", 32), rep("second", 32))
+cntry <- rep(df$cow, 2)
+df2 <- as.data.frame(cbind(discrep, time, cntry))
+df2$time <- as.factor(df2$time)
+df2$discrep <- as.numeric(df2$discrep)
+
+agg_png(wdir("figures/fig3.png"),width = 1600,height = 900)
+ggplot(data = df2, aes(x = discrep, fill = time)) +
+  geom_density(alpha = 0.5, trim = FALSE) + 
+  xlab(label = "Discrepancy Index") +
+  ylab(label = "Density") +
+  scale_fill_discrete(name = "Period", labels = c("01/03-15/03","15/03 - 30/03")) +
+  theme(axis.title = element_text(size = 24,face = "bold"),legend.title = element_text(size = 24, face = "bold"), legend.text = element_text(size = 16)) 
+invisible(dev.off())
 
 
 
-```{r corrs}
-cor <- select(df, concern_self, days_since_peak, conf_delta, gov_resp, stay, gini_disp, top1, socpolicy, gdp)
-f1 <- cor(cor, use = "pairwise.complete.obs")
-
-
-cor1 <- kable(f1, digits = 2, col.names = c("Risk Perception", "Days Since Peak", "New Cases Past Week","Severity of Gov Response", "Timing of Gov Response", "Gini, disposable", "Welfare State", "GDP, per capita"))
-
-kable_styling(cor1)
 ```
 
 
 
 
-```{r plot1}
-ggplot(df, aes(y=gov_resp, x=gov_intv)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("General Public Preferences for Government Intervention") +
-  ylab("Severity of Government Pandemic Measures") +
-  theme_classic()
-  
-```
-
-```{r plot2}
-ggplot(df, aes(y=gov_resp, x=gov_ineq)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("Public Preferences for Government Redistribution") +
-  ylab("Severity of Government Pandemic Measures") +
-  theme_classic()
-  
-```
-```{r plot3}
-ggplot(df, aes(y=gov_resp, x=gini_disp)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("Gini, post-tax and transfer") +
-  ylab("Severity of Government Pandemic Measures") +
-  theme_classic()
-  
-```
-
-
-
-
-```{r plot4}
-ggplot(df, aes(y=concern_self, x=gov_resp)) +
-  geom_point() +
-  geom_text(aes(label=iso), vjust = 1.5) +
-  geom_smooth(method=lm, se=FALSE) +
-  xlab("Severity of Government Pandemic Measures") +
-  ylab("Risk Perceptions") +
-  theme_classic()
-  
-```
-
-
-```{r adjusted_risk}
-
-# adjust risk for severity of outbreak
-m1 <- lm(concern_self ~ days_since_peak + conf_delta + chi, data = df)
-
-# predicted values
-df$m1p <- predict.lm(m1, df)
-
-# residuals
-df$m1r <- df$concern_self - df$m1p 
-
-# plot fitted v observed
-ggplot(df, aes(y=m1p, x=concern_self)) +
-  geom_point() +
-  geom_text_repel(aes(label=iso), vjust = 1.5) +
-  geom_abline(slope=1) +
-
-  xlab("Observed Risk Perceptions") +
-  ylab("Predicted Risk Perceptions") +
-  theme_classic()
-
-#   geom_smooth(method=lm, se=FALSE) +
-
-mx <- lm(m1r ~ gini_disp, data = df)
-summary(mx)
-  
-```
-
-
-```{r plot6}
-
-
-ggplot(df, aes(y=m1r, x=gini_disp)) +
-  geom_smooth(method=lm, se=FALSE) +
-  geom_text_repel(aes(label=iso), size = 3) +
-  xlab("Income Inequality, post-tax and transfer gini") +
-  ylab("Risk Perceptions, M1 residuals") +
-  theme_classic()
-
-#   
-```
-```{r plot7}
-
-
-ggplot(df, aes(y=m1r, x=socpolicy)) +
-  geom_smooth(method=lm, se=FALSE) +
-  geom_label_repel(aes(label=iso), size = 2.5) +
-  xlab("Welfare State, spending and coverage") +
-  ylab("Risk Perceptions, M1 residuals") +
-  theme_classic()
-
-#   
-```
-
-
-```{r plot8}
-
-
-ggplot(df, aes(y=m1r, x=gdp)) +
-  geom_smooth(method=lm, se=FALSE) +
-  geom_label_repel(aes(label=iso), size = 2.5) +
-  xlab("GDP, per capita parity") +
-  ylab("Risk Perceptions, M1 residuals") +
-  theme_classic()
-
-#   
-```
-```{r plot9}
-mid <- 34
-# trim gini to get better color display
-df$gini_color <- ifelse(df$gini_disp<45, df$gini_disp, 45)
-
-ggplot(data=df, aes(x=conf_delta, y=concern_self, color = gini_color)) +
-  geom_point() +
-  geom_smooth(method=lm, se=FALSE, color = "gray50", linetype = "dashed") +
-  geom_text_repel(aes(label = iso), size = 2.8) +
-  scale_color_gradient2(midpoint=mid, low="blue", mid="gray55", high="red", space="Lab") +
-  labs(x= "New Case Rate, past week", y = "Coronavirus Concerns", color = "Income Inequality\n(Gini, post\ntax & transfer)") +
-      theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 10))
-```
 
 
 ## Stage 1
-```{r }
+```{r m1}
 
 m11 <- lm(chi1 ~ dpm1 + gov_author , data = df)
 
 m12 <- lm(chi1 ~ dpm1 + gov_author + gini_disp, data = df)
 
-m13 <- lm(chi1 ~ dpm1 + gov_author + socpolicy, data = df)
+m13 <- lm(chi1 ~ dpm1 + gov_author + soc_spend, data = df)
 
 m14 <- lm(chi1 ~ dpm1 + gov_author + gdp, data = df)
 
-m15 <- lm(chi1 ~ dpm1 + gov_author + gini_disp + socpolicy + gdp, data = df)
+m15 <- lm(chi1 ~ dpm1 + gov_author + gini_disp + soc_spend + gdp, data = df)
 
-tab_model(m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Deaths per Million", "Public Prefrence", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M11", "M12","M13", "M14","M15"), pred.labels = c("Intercept", "Deaths per Million", "Government Intervention", "Disposable Income Inequality", "Social Spending", "GDP Per Capita"))
 ```
 
 
 ## Stage 2
 
-```{r q2reg}
+```{r m2}
 
-# m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
 m21 <- lm(behave ~ dpm2 + discrep, data = df)
 
 m22 <- lm(behave ~ dpm2 + discrep + gini_disp, data = df)
 
-m23 <- lm(behave ~ dpm2 + discrep + socpolicy, data = df)
+m23 <- lm(behave ~ dpm2 + discrep + soc_spend, data = df)
 
 m24 <- lm(behave ~ dpm2 + discrep + gdp, data = df)
 
-m25 <- lm(behave ~ dpm2 + discrep + gini_disp + socpolicy + gdp, data = df)
+m25 <- lm(behave ~ dpm2 + discrep + gini_disp + soc_spend + gdp, data = df)
 
-tab_model(m21, m22, m23, m24, m25, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M21", "M22","M23", "M24","M25"), pred.labels = c("Deaths per Million", "Discrepancy Index", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
-```
+m26 <- lm(behave ~ dpm2*discrep + gini_disp + soc_spend + gdp, data = df)
 
-```{r q2reg2}
 
-# m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
-m21b <- lm(gather ~ days_since_peak + conf_delta + chi, data = df)
 
-m22b <- lm(gather ~ days_since_peak + conf_delta + chi + gini_disp, data = df)
-
-m23b <- lm(gather ~ days_since_peak + conf_delta + chi + socpolicy, data = df)
-
-m24b <- lm(gather ~ days_since_peak + conf_delta + chi + gdp, data = df)
-
-m25b <- lm(gather ~ days_since_peak + conf_delta + chi + gini_disp + socpolicy + gdp, data = df)
-
-tab_model(m21b, m22b, m23b, m24b, m25b, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5","M6"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
-```
-
-```{r q2reg3}
-
-# m1x <- lm(concern_self ~ days_since_peak + conf_delta + gov_resp*intervention, data = df)
-m21c <- lm(distance ~ days_since_peak + conf_delta + chi, data = df)
-
-m22c <- lm(distance ~ days_since_peak + conf_delta + chi + gini_disp, data = df)
-
-m23c <- lm(distance ~ days_since_peak + conf_delta + chi + socpolicy, data = df)
-
-m24c <- lm(distance ~ days_since_peak + conf_delta + chi + gdp, data = df)
-
-m25c <- lm(distance ~ days_since_peak + conf_delta + chi + gini_disp + socpolicy + gdp, data = df)
-
-tab_model(m21c, m22c, m23c, m24c, m25c, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"),  dv.labels = c("M1", "M2","M3", "M4","M5","M6"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M21", "M22","M23", "M24","M25", "M26"), pred.labels = c("Intercept", "Deaths per Million", "Discrepancy Index", "Disposable Income Inequality", "Social Spending", "GDP Per Capita", "Deaths*Discrepancy"), show.std = TRUE)
 ```
 
 
-```{r mediation}
-mod2 <- "
-  # indirect effects
-  # direct effects
-  
-"
+
+
+```{r m3}
+## Discrepancy index from March 1st to March 15th
+
+
+m31 <- lm(behave ~ dpm2 + discrep3, data = df)
+
+m32 <- lm(behave ~ dpm2 + discrep3 + gini_disp, data = df)
+
+m33 <- lm(behave ~ dpm2 + discrep3 + soc_spend, data = df)
+
+m34 <- lm(behave ~ dpm2 + discrep3 + gdp, data = df)
+
+m35 <- lm(behave ~ dpm2 + discrep3 + gini_disp + soc_spend + gdp, data = df)
+
+m36 <- lm(behave ~ dpm2*discrep3 + gini_disp + soc_spend + gdp, data = df)
+
+
+tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M31", "M32","M33", "M34","M35", "M36"), pred.labels = c("Intercept", "Deaths per Million", "Discrepancy Index", "Disposable Income Inequality", "Social Spending", "GDP Per Capita", "Deaths*Discrepancy"))
+```
+## Sensitivity analysis
+
+```{r m4}
+## Discrepancy index all the way up to April 7th
+
+m41 <- lm(behave ~ dpm2 + discrep2, data = df)
+
+m42 <- lm(behave ~ dpm2 + discrep2 + gini_disp, data = df)
+
+m43 <- lm(behave ~ dpm2 + discrep2 + soc_spend, data = df)
+
+m44 <- lm(behave ~ dpm2 + discrep2 + gdp, data = df)
+
+m45 <- lm(behave ~ dpm2 + discrep2 + gini_disp + soc_spend + gdp, data = df)
+
+m46 <- lm(behave ~ dpm2*discrep2 + gini_disp + soc_spend + gdp, data = df)
+
+
+tab_model(m41, m42, m43, m44, m45, m46, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,   dv.labels = c("M41", "M42","M43", "M44","M45", "M46"), pred.labels = c("Intercept","Deaths per Million", "Discrepancy Index", "Disposable Income Inequality", "Social Spending", "GDP Per Capita", "Deaths*Discrepancy"))
 ```
 
+```{r m5}
+betrack <- read_dta(wdir("data/GlobalBehaviorsPerceptions_Data_May21_2020.dta")) 
 
-```{r std_reg}
-tab_model(m1, m2, m3, m4, m5, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F, rm.terms = c("(Intercept)"), show.std = T, dv.labels = c("M3"), pred.labels = c("Days Since Curve Inflection", "New Case Rate", "Intervention Severity", "Disposable Income Inequality", "Welfare State Strength", "GDP Per Capita"))
+betrack <- betrack %>%
+  mutate(
+    cow = countrycode(iso2c, origin = "iso2c", destination = "cown"),
+    stay = beh_stayhome/20,
+    gather = beh_socgathering/20,
+    distance = beh_distance/20,
+    tsymp = beh_tellsymp/20,
+    hwash = beh_handwash/20
+  ) %>%
+  filter(cow %in% df$cow) %>%
+  mutate(
+    age_cat = age_yr_bin,
+    female = ifelse(gender %in% c(1,2), gender - 1, NA_real_),
+    edu_cat = educ_bin,
+    edu_yrs = educ,
+    inc_cat = inc_bin,
+    behave = round((stay + 0.776*gather + 1.083*distance)/3,2)
+  )
+betrack$cntry <- countrycode(betrack$cow, "cown","country.name")
+## Figure A.3
+agg_png(wdir("figures/figa3.png"),width = 1600,height = 900)
+ggplot(data = betrack, aes(x = age, fill = as.factor(cntry))) +
+  geom_density(alpha = 0.5, trim = FALSE) + 
+  xlab(label = "Age") +
+  ylab(label = "Density") +
+  scale_fill_discrete(name = "Country") +
+  theme(axis.title = element_text(size = 24,face = "bold"),legend.title = element_text(size = 24, face = "bold"), legend.text = element_text(size = 16)) 
+invisible(dev.off())
+## Figure A.4
+betrack_a4 <- betrack[complete.cases(betrack$edu_cat),]
+agg_png(wdir("figures/figa4.png"),width = 1600,height = 900)
+ggplot(data = betrack_a4, aes(x = as.factor(edu_cat), fill = as.factor(cntry))) +
+  geom_bar() + 
+  xlab(label = "Education categories") +
+  ylab(label = "Count") +
+  coord_flip() +
+  scale_fill_discrete(name = "Country") +
+  theme(axis.title = element_text(size = 24,face = "bold"),legend.title = element_text(size = 24, face = "bold"), legend.text = element_text(size = 16)) 
+invisible(dev.off())
+
+## Figure A.5
+betrack_a5 <- betrack[complete.cases(betrack$inc_cat),]
+agg_png(wdir("figures/figa5.png"),width = 1600,height = 900)
+ggplot(data = betrack_a5, aes(x = as.factor(inc_cat), fill = as.factor(cntry))) +
+  geom_bar() + 
+  xlab(label = "Income categories") +
+  ylab(label = "Count") +
+  coord_flip() +
+  scale_fill_discrete(name = "Country") +
+  theme(axis.title = element_text(size = 24,face = "bold"),legend.title = element_text(size = 24, face = "bold"), legend.text = element_text(size = 16)) 
+invisible(dev.off())
+
+## Figure A6
+betrack_a6 <- betrack[complete.cases(betrack$female),]
+
+agg_png(wdir("figures/figa6.png"),width = 1600,height = 900)
+ggplot(data = betrack_a6, aes(x = as.factor(female), fill = as.factor(cntry))) +
+  geom_bar() + 
+  xlab(label = "Female") +
+  ylab(label = "Count") +
+  coord_flip() +
+  scale_fill_discrete(name = "Country") +
+  theme(axis.title = element_text(size = 24,face = "bold"),legend.title = element_text(size = 24, face = "bold"), legend.text = element_text(size = 16)) 
+invisible(dev.off())
+
 ```
-
-
 
 
