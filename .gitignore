@@ -2,3 +2,6 @@
 choice/COVIDiSTRESS global survey May 25 2020 (choice text).csv
 second_study/.Rhistory
 third_study/.Rhistory
+.Rproj.user
+third_study/data/cis2.RData
+*.png
