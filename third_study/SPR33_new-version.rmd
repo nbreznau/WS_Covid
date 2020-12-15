@@ -316,7 +316,7 @@ covid <- covid %>%
   select(cow, date, dpm) %>%
   filter(cow %in% issp16df$cow)
 
-##  Outbreak Stage (01/03 - 19/03)
+##  Outbreak Stage (01/03 - 15/03)
 
 dpm_stage1 <- filter(covid, covid$date >= "2020-03-01" & covid$date <= "2020-03-15")
 
@@ -326,9 +326,9 @@ dpm_stage1$dpm1 <- ifelse(is.nan(dpm_stage1$dpm), 0, dpm_stage1$dpm)
 
 dpm_stage1 <- select(dpm_stage1, cow, dpm1)
 
-## Public Reaction Stage (19/03 - 07/04)
+## Public Reaction Stage (20/03 - 07/04)
 
-dpm_stage2 <- filter(covid, covid$date > "2020-03-15" & covid$date <= "2020-04-07")
+dpm_stage2 <- filter(covid, covid$date > "2020-03-19" & covid$date <= "2020-04-07")
 
 dpm_stage2 <- round(aggregate(dpm_stage2[,-2], by = list(dpm_stage2$cow), FUN = mean, na.rm = TRUE),4)
 
@@ -337,17 +337,7 @@ dpm_stage2$dpm2 <- ifelse(is.nan(dpm_stage2$dpm), 0, dpm_stage2$dpm)
 dpm_stage2 <- select(dpm_stage2, cow, dpm2)
 
 
-# three countries were not included in the data for dpm1
 
-# take their values from dpm2
-
-# "%ni%" <- Negate("%in%")
-# unique(dpm_stage1$cow[dpm_stage2$cow %ni% dpm_stage1$cow])
-
-# dpm_stage1[(length(dpm_stage1$cow) + 1), 1] <- 101
-# dpm_stage1[(length(dpm_stage1$cow) + 1), 1] <- 640
-# dpm_stage1$dpm1[dpm_stage1$cow == 101] <- dpm_stage2$dpm2[dpm_stage2$cow == 101]
-# dpm_stage1$dpm1[dpm_stage1$cow == 640] <- dpm_stage2$dpm2[dpm_stage2$cow == 640]
 ## Sensitivity Analysis - Outbreak Stage: March 1st to March 19th
 
 dpm_stage3 <- filter(covid, covid$date > "2020-03-01" & covid$date < "2020-03-20")
@@ -358,15 +348,6 @@ dpm_stage3$dpm3 <- ifelse(is.nan(dpm_stage3$dpm), 0, dpm_stage3$dpm)
 
 dpm_stage3 <- select(dpm_stage3, cow, dpm3)
 
-## Sensitivity Analysis - Reaction Stage: March 20th to March 26th
-
-dpm_stage4 <- filter(covid, covid$date > "2020-03-19" & covid$date <= "2020-04-07")
-
-dpm_stage4 <- round(aggregate(dpm_stage4[,-2], by = list(dpm_stage4$cow), FUN = mean, na.rm = TRUE),4)
-
-dpm_stage4$dpm4 <- ifelse(is.nan(dpm_stage4$dpm), 0, dpm_stage4$dpm)
-
-dpm_stage4 <- select(dpm_stage4, cow, dpm4)
 
 
 
@@ -398,7 +379,7 @@ gov_resp1 <- gov_resp1 %>%
   select(cow, chi1, chi1.2) %>%
   arrange(cow)
 
-## Public Reaction Stage: March 16th to April 7th
+## Public Reaction Stage: March 20th to April 7th
 
 gov_resp2 <- gov_resp %>%
   mutate(
@@ -406,7 +387,7 @@ gov_resp2 <- gov_resp %>%
     chi = ContainmentHealthIndex/20,
     cow = countrycode(CountryName, origin = "country.name", destination = "cown")
   ) %>%
-  filter(date > "2020-03-15" & date <= "2020-04-07" & cow %in% issp16dfa$cow) %>%
+  filter(date > "2020-03-19" & date <= "2020-04-07" & cow %in% issp16dfa$cow) %>%
   select(CountryName, date, chi)
 
 gov_resp2 <- aggregate(x = gov_resp2[,-2], by = list(gov_resp2$CountryName), FUN = mean)
@@ -548,12 +529,10 @@ socp <- socp %>%
 df <- left_join(issp16dfa, gov_resp1, by = "cow")
 df <- left_join(df, gov_resp2, by = "cow")
 df <- left_join(df, gov_resp3, by = "cow")
-df <- left_join(df, gov_resp4, by = "cow")
 df <- left_join(df, betrack_av, by = "cow")
 df <- left_join(df, dpm_stage1, by = "cow")
 df <- left_join(df, dpm_stage2, by = "cow")
 df <- left_join(df, dpm_stage3, by = "cow")
-df <- left_join(df, dpm_stage4, by = "cow")
 df <- left_join(df, gini_disp, by = "cow")
 df <- left_join(df, gdp, by = "cow")
 df <- left_join(df, socp, by = "cow")
@@ -628,8 +607,8 @@ ggplot(data = df2, aes(x = chi, fill = time)) +
   geom_density(alpha = 0.5, trim = FALSE) + 
   xlab(label = "Government Intervention") +
   ylab(label = "Density") +
-  scale_fill_discrete(name = "Period", labels = c("01/03-19/03","20/03 - 07/04")) +
-  theme(axis.title = element_text(size = 24,face = "bold"),legend.title = element_text(size = 24, face = "bold"), legend.text = element_text(size = 16)) 
+  scale_fill_discrete(name = "Period", labels = c("01/03-15/03","20/03 - 07/04")) +
+  theme(axis.title = element_text(size = 32,face = "bold"),legend.title = element_text(size = 28, face = "bold"), legend.text = element_text(size = 24)) 
 invisible(dev.off())
 
 knitr::include_graphics("results/fig2.png")
@@ -667,7 +646,7 @@ df$gap1_cat <- as.factor(ifelse(df$gap1 > 0, 1, 0))
 
 #### Public Reaction Stage
 
-March 16th - April 7th
+March 20th - April 7th
 
 
 Now we take the residuals as the discrepancy. We also control for current level of intervention as this influences behaviors.
@@ -690,7 +669,7 @@ m26 <- lm(behave ~ dpm2 + chi2 + gap1 + gini_disp + soc_spend + gdp, data = df)
 
 
 
-tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M21", "M22","M23", "M24","M25", "M26"), pred.labels = c("Intercept", "Deaths per Million", "Current Gov. Intervention", "Discrepancy from Outbreak Stage",  "Disposable Income Inequality", "Social Spending", "GDP (k$, per capita)"), show.std = TRUE)
+tab_model(m21, m22, m23, m24, m25, m26, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M21", "M22","M23", "M24","M25", "M26"), pred.labels = c("Intercept", "Deaths per Million", "Current Gov. Intervention", "Discrepancy from Outbreak Stage",  "Disposable Income Inequality", "Social Spending", "GDP (k$, per capita)"))
 ```
 
 #### Table 4
@@ -711,7 +690,7 @@ m36 <- lm(behave ~ dpm2 + chi2 + gap1_cat + gini_disp + soc_spend + gdp, data = 
 
 
 
-tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M31", "M32","M33", "M34","M35", "M36"), pred.labels = c("Intercept", "Deaths per Million", "Current Gov. Intervention", "Positive Discrepancy from Outbreak Stage",  "Disposable Income Inequality", "Social Spending", "GDP (k$, per capita)"), show.std = TRUE)
+tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M31", "M32","M33", "M34","M35", "M36"), pred.labels = c("Intercept", "Deaths per Million", "Current Gov. Intervention", "Positive Discrepancy from Outbreak Stage",  "Disposable Income Inequality", "Social Spending", "GDP (k$, per capita)"), show.std= TRUE)
 ```
 #### Sensitivity Analysis: 
 
