@@ -698,22 +698,22 @@ March 16th - March 31st
 
 Test as a sensitivity analysis
 
-```{r m3}
+```{r m4}
 m4a <- lm(chi3 ~ dpm3 + gov_author, data = df)
 df$chi3_p <- predict.lm(m4a, newdata = df)
 df$gap2 <- df$chi3 - df$chi3_p
 
-m41 <- lm(behave ~ dpm4 + chi4, data = df)
+m41 <- lm(behave ~ dpm4 + chi2, data = df)
 
-m42 <- lm(behave ~ dpm4 + gap2 + chi4, data = df)
+m42 <- lm(behave ~ dpm4 + gap2 + chi2, data = df)
 
-m43 <- lm(behave ~ dpm4 + gap2 + chi4 + gini_disp , data = df)
+m43 <- lm(behave ~ dpm4 + gap2 + chi2 + gini_disp , data = df)
 
-m44 <- lm(behave ~ dpm4 + gap2 + chi4 + soc_spend , data = df)
+m44 <- lm(behave ~ dpm4 + gap2 + chi2 + soc_spend , data = df)
 
-m45 <- lm(behave ~ dpm4 + gap2 + chi4 + gdp, data = df)
+m45 <- lm(behave ~ dpm4 + gap2 + chi2 + gdp, data = df)
 
-m46 <- lm(behave ~ dpm4 + gap2 + chi4 + gini_disp + soc_spend + gdp, data = df)
+m46 <- lm(behave ~ dpm4 + gap2 + chi2 + gini_disp + soc_spend + gdp, data = df)
 
 
 
