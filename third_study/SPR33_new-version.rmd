@@ -257,7 +257,7 @@ metric2b <- cfa(model = meaInmod2b, data = betrack_complete, group = "cow")
 
 ## Create the "behave" variable
 
-betrack_complete$behave <- round((betrack_complete$stay + 0.816*betrack_complete$gather + 1.083*betrack_complete$distance)/3,2)
+betrack_complete$behave <- round((betrack_complete$stay + 0.776*betrack_complete$gather + 1.083*betrack_complete$distance)/3,2)
 
 
 ## Take the Country-Average
@@ -326,9 +326,10 @@ dpm_stage1$dpm1 <- ifelse(is.nan(dpm_stage1$dpm), 0, dpm_stage1$dpm)
 
 dpm_stage1 <- select(dpm_stage1, cow, dpm1)
 
+
 ## Public Reaction Stage (20/03 - 07/04)
 
-dpm_stage2 <- filter(covid, covid$date > "2020-03-19" & covid$date <= "2020-04-07")
+dpm_stage2 <- filter(covid, covid$date >= "2020-03-20" & covid$date <= "2020-04-07")
 
 dpm_stage2 <- round(aggregate(dpm_stage2[,-2], by = list(dpm_stage2$cow), FUN = mean, na.rm = TRUE),4)
 
@@ -340,7 +341,7 @@ dpm_stage2 <- select(dpm_stage2, cow, dpm2)
 
 ## Sensitivity Analysis - Outbreak Stage: March 1st to March 19th
 
-dpm_stage3 <- filter(covid, covid$date > "2020-03-01" & covid$date < "2020-03-20")
+dpm_stage3 <- filter(covid, covid$date >= "2020-03-01" & covid$date <= "2020-03-19")
 
 dpm_stage3 <- round(aggregate(dpm_stage3[,-2], by = list(dpm_stage3$cow), FUN = mean, na.rm = TRUE),4)
 
@@ -387,7 +388,7 @@ gov_resp2 <- gov_resp %>%
     chi = ContainmentHealthIndex/20,
     cow = countrycode(CountryName, origin = "country.name", destination = "cown")
   ) %>%
-  filter(date > "2020-03-19" & date <= "2020-04-07" & cow %in% issp16dfa$cow) %>%
+  filter(date >= "2020-03-20" & date <= "2020-04-07" & cow %in% issp16dfa$cow) %>%
   select(CountryName, date, chi)
 
 gov_resp2 <- aggregate(x = gov_resp2[,-2], by = list(gov_resp2$CountryName), FUN = mean)
@@ -410,7 +411,7 @@ gov_resp3 <- gov_resp %>%
     chi = ContainmentHealthIndex/20,
     cow = countrycode(CountryName, origin = "country.name", destination = "cown")
   ) %>%
-  filter(date > "2020-03-01" & date < "2020-03-20" & cow %in% issp16dfa$cow) %>%
+  filter(date >= "2020-03-01" & date <= "2020-03-19" & cow %in% issp16dfa$cow) %>%
   select(CountryName, date, chi)
 
 gov_resp3 <- aggregate(x = gov_resp3[,-2], by = list(gov_resp3$CountryName), FUN = mean)
@@ -424,27 +425,7 @@ gov_resp3 <- gov_resp3 %>%
   select(cow, chi3) %>%
   arrange(cow)
 
-## Sensitivity Analysis - Reaction Stage: March 20th to April 7th
 
-gov_resp4 <- gov_resp %>%
-  mutate(
-    date = as.Date(as.character(Date), "%Y%m%d"),
-    chi = ContainmentHealthIndex/20,
-    cow = countrycode(CountryName, origin = "country.name", destination = "cown")
-  ) %>%
-  filter(date > "2020-03-19" & date < "2020-04-07" & cow %in% issp16dfa$cow) %>%
-  select(CountryName, date, chi)
-
-gov_resp4 <- aggregate(x = gov_resp4[,-2], by = list(gov_resp4$CountryName), FUN = mean)
-
-gov_resp4 <- gov_resp4 %>%
-  mutate(
-    cname = Group.1,
-    cow = countrycode(cname, origin = "country.name", destination = "cown"),
-    chi4 = round(scale(chi),2), 
-  ) %>% 
-  select(cow, chi4) %>%
-  arrange(cow)
 
 
 ```
@@ -639,6 +620,13 @@ tab_model(m11, m12, m13, m14, m15, p.style = "stars", p.threshold = c(0.10, 0.05
 df$chi1_p <- predict.lm(m11, newdata = df)
 df$gap1 <- round(df$chi1 - df$chi1_p,3)
 df$gap1_cat <- as.factor(ifelse(df$gap1 > 0, 1, 0))
+df$gap1_tri <- as.factor(
+  case_when(
+    df$gap1 > 0.05 ~ 1,
+    df$gap1 < -0.05 ~ -1,
+    TRUE ~ 0
+  )
+)
 
 
 ```
@@ -690,7 +678,7 @@ m36 <- lm(behave ~ dpm2 + chi2 + gap1_cat + gini_disp + soc_spend + gdp, data = 
 
 
 
-tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M31", "M32","M33", "M34","M35", "M36"), pred.labels = c("Intercept", "Deaths per Million", "Current Gov. Intervention", "Positive Discrepancy from Outbreak Stage",  "Disposable Income Inequality", "Social Spending", "GDP (k$, per capita)"), show.std= TRUE)
+tab_model(m31, m32, m33, m34, m35, m36, p.style = "stars", p.threshold = c(0.10, 0.05, 0.01), show.ci = F,  dv.labels = c("M31", "M32","M33", "M34","M35", "M36"), pred.labels = c("Intercept", "Deaths per Million", "Current Gov. Intervention", "Positive Discrepancy from Outbreak Stage",  "Disposable Income Inequality", "Social Spending", "GDP (k$, per capita)"))
 ```
 #### Sensitivity Analysis: 
 
@@ -703,17 +691,17 @@ m4a <- lm(chi3 ~ dpm3 + gov_author, data = df)
 df$chi3_p <- predict.lm(m4a, newdata = df)
 df$gap2 <- df$chi3 - df$chi3_p
 
-m41 <- lm(behave ~ dpm4 + chi2, data = df)
+m41 <- lm(behave ~ dpm3 + chi2, data = df)
 
-m42 <- lm(behave ~ dpm4 + gap2 + chi2, data = df)
+m42 <- lm(behave ~ dpm3 + gap2 + chi2, data = df)
 
-m43 <- lm(behave ~ dpm4 + gap2 + chi2 + gini_disp , data = df)
+m43 <- lm(behave ~ dpm3 + gap2 + chi2 + gini_disp , data = df)
 
-m44 <- lm(behave ~ dpm4 + gap2 + chi2 + soc_spend , data = df)
+m44 <- lm(behave ~ dpm3 + gap2 + chi2 + soc_spend , data = df)
 
-m45 <- lm(behave ~ dpm4 + gap2 + chi2 + gdp, data = df)
+m45 <- lm(behave ~ dpm3 + gap2 + chi2 + gdp, data = df)
 
-m46 <- lm(behave ~ dpm4 + gap2 + chi2 + gini_disp + soc_spend + gdp, data = df)
+m46 <- lm(behave ~ dpm3 + gap2 + chi2 + gini_disp + soc_spend + gdp, data = df)
 
 
 
