@@ -3,6 +3,7 @@ This repository provides data and replication materials for the paper
 ### The welfare state and risk perceptions: the Novel Coronavirus Pandemic and public concern in 70 countries
 
 [Published version](https://doi.org/10.1080/14616696.2020.1793215)
+
 [Preprint - working paper](https://osf.io/preprints/socarxiv/96fd2/)
 
 #### Abstract
