@@ -1,0 +1,920 @@
+---
+title: "Technical Appendix: Welfare State and Risk Perceptions, Part II"
+author: "Nate Breznau"
+date: "5/18/2020"
+output:
+  html_document: default
+---
+
+This is an analysis of public concern about the COVID-19 pandemic and various socioeconomic factors at the country-level. 
+
+You will find all of the data files plus the original R code on the Open Science Framework: https://osf.io/muhdz/
+
+
+```{r setup, warning=F, message=F}
+
+rm(list = ls(all = TRUE))
+
+pacman::p_load("dplyr","wbstats","readstata13","countrycode","car","ggplot2","xlsx","jtools","sjPlot","sjmisc","sjlabelled","tidyverse","corrplot","psych","lavaan","kable","kableExtra","ggrepel","stringi", "ragg")
+
+# function to keep complete cases
+completeFun <- function(data, desiredCols) {
+  completeVec <- complete.cases(data[, desiredCols])
+  return(data[completeVec, ])
+}
+```
+
+## 1. Data Prep
+
+### 1.1 COVIDiSTRESS Project
+
+The csv files were cleaned by Nate Breznau. Cleaning code "cis_clean.Rmd" here: https://osf.io/au3jy/
+
+
+A comparative survey of psychological stress and pandemic attitudes. Not representative.
+
+Original English question wording:
+
+Concern about consequences of the coronavirus 
+(1)…for yourself 
+(2)…for your family 
+(3)…for your close friends
+(4)…for your country 
+(5)…for other countries across the globe
+
+```{r cis, warning=F, message=F}
+
+load(file = here::here("data/cis.Rdata"), .GlobalEnv)
+
+# Demographic recodes
+cis <- cis %>%
+  mutate(date = as.Date(StartDate),
+         female = as.numeric(Dem_gender) - 1,
+         age = as.numeric(Dem_age),
+         educ_years = as.numeric(car::recode(Dem_edu, recode = "7 = 6;6 = 9;5 = 12;4 = 14;3 = 16; 2 = 20")),
+         educ_uni = as.numeric(car::recode(Dem_edu, recode = "4:7=0;1=0;2:3=1"))) %>%
+  rowwise() %>%
+         mutate(concern_self = mean(c(Corona_concerns_1,Corona_concerns_2,Corona_concerns_3), na.rm=T),
+         concern_society = mean(c(Corona_concerns_4,Corona_concerns_5), na.rm=T),
+         period = ifelse(date < as.Date('2020-03-31'), 1, ifelse(date < as.Date('2020-04-01'), 2, ifelse(date < as.Date('2020-04-04'), 3, ifelse(date < as.Date('2020-04-07'), 4, ifelse(date < as.Date('2020-04-12'), 5, ifelse(date < as.Date('2020-04-19'), 6, ifelse(date < as.Date('2020-05-05'), 7, 8))))))))
+
+cis <- cis %>%
+  group_by(period,cow) %>%
+  mutate(cases_p_c = length(na.omit(concern_self))) %>%
+  ungroup()
+
+cis <- cis %>%
+  group_by(cow) %>%
+  mutate(cases_p_c = min(cases_p_c, na.rm = T)) %>%
+  ungroup()
+
+# S.Sudan and Panama have very few non-missing cases, plus some countries are NA. Remove.
+cis <- subset(cis, !is.na(cow) & cow!=95)
+
+cis_na <- cis %>%
+  mutate(cases_p_c = ifelse(cases_p_c < 20, NA, cases_p_c))
+
+cis_na <- completeFun(cis_na, "cases_p_c")
+  
+cisC <- subset(cis, date < as.Date("2020-05-01"))
+cisC <- subset(cisC, cases > 20)
+# Make list of using countries
+
+use_countries <- as.list(c(2, 20, 55, 70, 90, 92, 94, 100, 130, 135, 140, 155, 160, 200, 205, 210, 211, 212, 220, 225, 230, 235, 255, 290, 305, 310, 316, 317, 325, 338, 339, 350, 352, 355, 360, 365, 366, 367, 368, 369, 372, 375, 380, 385, 390, 395, 560, 600, 615, 640, 651, 666, 696, 700, 703, 710, 713, 732, 740, 750, 770, 771, 816, 820, 830, 835, 840, 850, 900, 920))
+
+use_countriesa <- as.list(c(2, 20, 55, 70, 90, 92, 94, 100, 130, 135, 140, 155, 160, 200, 205, 210, 211, 212, 220, 225, 230, 235, 255, 290, 305, 310, 316, 317, 325, 338, 339, 343, 344, 346, 349, 350, 352, 355, 360, 365, 366, 367, 368, 369, 372, 375, 380, 385, 390, 395, 560, 600, 615, 640, 651, 666, 696, 700, 703, 710, 713, 732, 740, 750, 770, 771, 816, 820, 830, 835, 840, 850, 900, 920))
+
+
+rm(cisC)
+
+table(cis$period)
+  
+```
+### Visualize Concern by Period
+
+There appear to be global period effects as almost all countries decline in concern after April. However, as this chart makes clear, there are not enough cases per period to do cross-national analysis. Only 14 countries have more than 20 cases per period through mid-June.
+
+#### Figure 2 (Appendix Only). Countries with Consistent Data Throughout the Survey
+
+This figure demonstrates that risk perceptions decline in most countries after the first few months, suggesting there are period effects. But given that there are so few countries with consistent longitudinal data, an analysis of these period effects or time itself is not advisable, if at all possible.
+
+```{r briefsummary, echo = T}
+
+
+cis_na$group <- paste(cis_na$period,cis_na$iso, sep = "_")
+cis1_na <- cis_na %>%
+  group_by(group) %>%
+  summarise_at(vars(concern_self, concern_society), funs(mean(., na.rm=TRUE)))
+
+cis1_na <- cis1_na %>%
+  mutate(Country = stri_sub(group,-3,-1),
+         period = as.numeric(stri_sub(group,1,1)))
+
+#need to create number of cases per group-period variable and reduce data here
+
+ggplot(data=cis1_na, aes(x=period , y=concern_self, group=Country, color=Country)) +
+    geom_line() +
+  labs(x= "Period", y = "Self-concerns")
+
+```
+
+
+### Measurement Model
+
+#### CFA 1 v 2 latents
+
+
+```{r measurement2, results=F}
+
+concern_m1 <- ' all  =~ Corona_concerns_1 + Corona_concerns_2 + Corona_concerns_3 + Corona_concerns_4 + Corona_concerns_5' 
+
+concern_m2 <- ' self  =~ Corona_concerns_1 + Corona_concerns_2 + Corona_concerns_3    
+                country =~ Corona_concerns_4 + Corona_concerns_5' 
+
+concern_m3 <- ' self  =~ Corona_concerns_1 + f*Corona_concerns_2 + c(a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,b,a,a,a,a,a,a,a,c,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,a,d,a)*Corona_concerns_3    
+                country =~ Corona_concerns_4 + g*Corona_concerns_5'
+
+# Use countries with more cases for this test
+
+cis_mgcfa <- subset(cis, date < as.Date('2020-05-01') & cases > 100)
+
+fit1 <- cfa(concern_m1, data=cis_mgcfa)
+fit2 <- cfa(concern_m2, data=cis_mgcfa)
+f1 <- summary(fit1, fit.measures=T)
+f2 <- summary(fit2, fit.measures=T)
+
+```
+
+#### Multigroup Invariance Test
+
+Test invariance on countries with at least 400 cases. Later: plot appendix with only 100 case countries and fitted lines. Allow one parameter to play in a few outlying countries.
+
+```{r measurement3, results=F}
+
+fit3 <- cfa(concern_m3, data=cis_mgcfa, group = "cname")
+f3 <- summary(fit3, fit.measures=T)
+```
+
+```{r measurement4, echo=T}
+cfa <- list(f1[["FIT"]][["cfi"]],f1[["FIT"]][["tli"]],f1[["FIT"]][["rmsea"]],f2[["FIT"]][["cfi"]],f2[["FIT"]][["tli"]],f2[["FIT"]][["rmsea"]],f3[["FIT"]][["cfi"]],f3[["FIT"]][["tli"]],f3[["FIT"]][["rmsea"]])
+
+cfa <- round(as.numeric(cfa), 3)
+
+names(cfa) <- c("CFI_1","TLI_1","RMSEA_1","CFI_2","TLI_2","RMSEA_2","CFI_3","TLI_3","RMSEA_3")
+
+
+rm(cis_mgcfa)
+
+print(cfa)
+```
+
+### Data Sources
+
+#### Johns Hopkins Covid-19 Tracker
+
+A multi-source project for compiling global confirmed cases, deaths and recoveries.
+
+Available at: https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data
+
+These files were downloaded. They have to be used as is, otherwise the rows and columns change. Otherwise the date range has to be adjusted by the number of columns in the code below.
+
+```{r data2, warning=F, message=F}
+confirmed <- read.csv(here::here("data/time_series_covid19_confirmed_global.csv"), header = F)
+deaths <- read.csv(here::here("data/time_series_covid19_deaths_global.csv"), header = F)
+
+
+confirmed[1,1] <- "Province"
+confirmed[1,2] <- "Country"
+deaths[1,1] <- "Province"
+deaths[1,2] <- "Country"
+
+cnames <- as.list(confirmed[1,1:130])
+cnamesd <- as.list(deaths[1,1:155])
+
+colnames(confirmed) <- cnames
+colnames(deaths) <- cnamesd
+
+confirmed[,5:130] <- sapply(confirmed[5:130],as.numeric)
+deaths[,5:155] <- sapply(deaths[5:155],as.numeric)
+
+# Canada, Australia and China are by province, not a sum
+
+cca <- subset(confirmed, Country=="Australia", select = -c(Province,Country,Lat,Long))
+ccca <- subset(confirmed, Country=="Canada", select = -c(Province,Country,Lat,Long))
+ccch <- subset(confirmed, Country=="China", select = -c(Province,Country,Lat,Long))
+ccad <- subset(deaths, Country=="Australia", select = -c(Province,Country,Lat,Long))
+cccad <- subset(deaths, Country=="Canada", select = -c(Province,Country,Lat,Long))
+ccchd <- subset(deaths, Country=="China", select = -c(Province,Country,Lat,Long))
+
+
+a <- as.data.frame(colSums(cca, na.rm = T))
+b <- as.data.frame(colSums(ccca, na.rm = T))
+c <- as.data.frame(colSums(ccch, na.rm = T))
+ad <- as.data.frame(colSums(ccad, na.rm = T))
+bd <- as.data.frame(colSums(cccad, na.rm = T))
+cd <- as.data.frame(colSums(ccchd, na.rm = T))
+
+aa <- data.frame("All","Australia",0,0,t(a))
+bb <- data.frame("All","Canada",0,0,t(b)) 
+cc <- data.frame("All","China",0,0,t(c))
+aaa <- data.frame("All","Australia",0,0,t(ad))
+bbb <- data.frame("All","Canada",0,0,t(bd)) 
+ccc <- data.frame("All","China",0,0,t(cd))
+
+colnames(aa) <- cnames
+colnames(bb) <- cnames
+colnames(cc) <- cnames
+colnames(aaa) <- cnamesd
+colnames(bbb) <- cnamesd
+colnames(ccc) <- cnamesd
+
+# add the three missing countries
+confirmed <- rbind(confirmed,aa,bb,cc)
+deaths <- rbind(deaths,aaa,bbb,ccc)
+
+# remove province-level data
+confirmed <- subset(confirmed, Province=="" | Province=="All")
+deaths <- subset(deaths, Province=="" | Province=="All")
+
+rm(a,b,c,aa,bb,cc,ad,bd,cd,aaa,bbb,ccc,cca,ccca,ccch,ccad,cccad,ccchd)
+
+confirmed <- subset(confirmed, select = -c(Province,Lat,Long))
+deaths <- subset(deaths, select = -c(Province,Lat,Long))
+
+# Final data for merging, wide
+hopkins <- left_join(confirmed, deaths, by = "Country")
+hopkins$cow <- countrycode(hopkins$Country, "country.name", "cown")
+
+colnames(confirmed) <- paste0("conf",colnames(confirmed))
+colnames(confirmed)[1] <- "Country"
+
+colnames(deaths) <- paste0("dead",colnames(deaths))
+colnames(deaths)[1] <- "Country"
+
+
+confirmed_long <- reshape(confirmed, idvar = "Country", direction = "long", v.names = "conf", varying = 2:127)
+
+deaths_long <- reshape(deaths, idvar = "Country", direction = "long", v.names = "dead", varying = 2:151)
+
+datel <- seq.Date(as.Date("2020-1-22"),as.Date("2020-5-26"), by = "days")
+datea <- seq.int(1,126)
+dateld <- seq.Date(as.Date("2020-1-22"),as.Date("2020-6-20"), by = "days")
+datead <- seq.int(1,151)
+  
+  
+datem <- data.frame(time = datea, date = datel)
+datemd <- data.frame(time = datead, date = dateld)
+datem$date <- as.Date(datem$date)
+datemd$date <- as.Date(datemd$date)
+
+deaths_long <- left_join(deaths_long,datemd)
+confirmed_long <- left_join(confirmed_long,datem)
+
+deaths_long$cow <- countrycode(deaths_long$Country, "country.name", "cown")
+confirmed_long$cow <- countrycode(confirmed_long$Country, "country.name", "cown")
+
+# lagged versions, 5-days
+
+# sort first
+deaths_long <- deaths_long[order(deaths_long$cow, deaths_long$date),]
+confirmed_long <- confirmed_long[order(confirmed_long$cow, confirmed_long$date),]
+
+deaths_long <- deaths_long %>%
+  mutate(dead_l5 = lag(dead, n = 5L),
+         dead_lead = lead(dead, n = 18L), # create 2.5 week lead (18 days)
+         dead_s = ifelse(dead > 0, 1, 0),# first death ID
+         dead_s1l = lag(dead_s, 1L),
+         dead_dif = dead_s - dead_s1l,
+         dead_dif = ifelse(cow == 710 & date == as.Date("2020-01-22"), 1, dead_dif))
+         
+# first death date
+
+deaths_long <- deaths_long %>%
+  group_by(cow) %>%
+  mutate(dead_1st = dplyr::if_else(dead_dif == 1, as.Date(date), as.Date("2020-06-02")),
+         dead_1st_date = min(dead_1st, na.rm=T)) %>%
+  ungroup()
+
+confirmed_long <- confirmed_long %>%
+  mutate(conf_l5 = lag(conf, n = 5L),
+         conf_l10 = lag(conf, n = 10L))
+
+
+deaths_long <- select(deaths_long, dead, dead_l5, dead_lead, dead_1st_date, date, cow)
+confirmed_long <- select(confirmed_long, conf, conf_l5, conf_l10, date, cow)
+
+# l5 variable comes from the wrong series prior to 1-27
+deaths_long$dead_l5 <- ifelse(deaths_long$date < as.Date("2020-01-27"), NA, deaths_long$dead_l5)
+
+confirmed_long$conf_l5 <- ifelse(confirmed_long$date < as.Date("2020-01-27"), NA, confirmed_long$conf_l5)
+confirmed_long$conf_l10 <- ifelse(confirmed_long$date < as.Date("2020-02-01"), NA, confirmed_long$conf_l10)
+
+# increasing or decreasing rate past week, numbers are so different that I make a trichotomy: < 1 = -1, 0-1 = 0 and > 1 = 1
+confirmed_long$conf_delta <- (confirmed_long$conf - confirmed_long$conf_l5) - (confirmed_long$conf_l5 - confirmed_long$conf_l10)
+
+confirmed_long$conf_delta <- ifelse(confirmed_long$conf_delta < 0, -1, ifelse(confirmed_long < 1.01, 0, 1))
+
+
+
+# Merge cases and deaths per date of survey per respondent
+
+
+# Find the moment with the curve 'flattens'
+
+deaths_long <- deaths_long %>%
+  mutate(dead_lead12 = lag(dead_lead, 12L),
+         dead_lead11 = lag(dead_lead, 11L),
+         dead_lead10 = lag(dead_lead, 10L),
+         dead_lead9 = lag(dead_lead, 9L),
+         dead_lead8 = lag(dead_lead, 8L),
+         dead_lead5 = lag(dead_lead, 5L),
+         dead_lead4 = lag(dead_lead, 4L),
+         dead_lead3 = lag(dead_lead, 3L),
+         dead_lead2 = lag(dead_lead, 2L),
+         dead_lead1 = lag(dead_lead, 1L),
+         dead_lead_past12 = (dead_lead12 + dead_lead11 + dead_lead10 + dead_lead9 + dead_lead8)/5,
+         dead_lead_past5 = (dead_lead5 + dead_lead4 + dead_lead3 + dead_lead2 + dead_lead1)/5,
+         dead_lead_wkchg = dead_lead_past12 - dead_lead_past5)
+
+# find the minimum point of weekly change, this is the height of the curve
+
+deaths_long <- deaths_long %>%
+  group_by(cow) %>%
+  mutate(curve_maxd = min(dead_lead_wkchg, na.rm=T),
+         curve_maxs = dplyr::if_else(curve_maxd == dead_lead_wkchg, as.Date(date), as.Date("2020-6-2")),
+         curve_max = min(curve_maxs, na.rm=T)) %>%
+  ungroup()
+
+deaths_long <- subset(deaths_long, select = -c(curve_maxd, curve_maxs))
+
+
+rm(cis_na)
+
+cis$date = as.Date(cis$EndDate)
+cis <- left_join(cis,deaths_long, by = c("cow","date"))
+cis <- left_join(cis,confirmed_long, by = c("cow","date"))
+
+# cis_dk <- subset(cis, cow == 390)
+
+```
+
+
+
+
+#### ILO - GEIP
+
+ILO. 2014. “Global Programme Employment Injury Insurance and Protection | GEIP Data.” https://www.ilo.org/wcmsp5/groups/public/---ed_emp/---emp_ent/documents/publication/wcms_573083.pdf
+
+
+```{r data4, warning = F, message = F, include = F}
+
+geip <- read.csv(here::here("data/EIIP_2014.csv"), header=T, stringsAsFactors = F)
+geip$cow <- countrycode(geip$Country, "country.name","cown")
+
+# fix entities
+# Angloa and Djibouti are presumed to be at the lower tail (interpolate = 4)
+# Palau assumed to be like the US and Dominican Rep like well off Carib. nation 
+geip <- geip %>%
+  mutate(lfcov = as.numeric(Coverage_pct_LF),
+         lfcov = ifelse(cow==986,85,lfcov),
+         lfcov = ifelse(cow==42,80,lfcov),
+         lfcov = ifelse(is.na(lfcov),4,lfcov),
+         cow_code = ifelse(Country == "Serbia",345,cow))
+
+completeFun(geip, "lfcov")
+
+geip <- select(geip,cow,lfcov)
+
+```
+
+#### Maddison Data - GDP
+
+(see book chapter for details)
+
+```{r data5, warning = F, message = F}
+gdpm <- read.csv(here::here("data/mpd2018.csv"), header=T, stringsAsFactors = F)
+
+gdpm <- subset(gdpm, year > 2013)
+gdpm <- select(gdpm, country, cgdppc, pop)
+gdpc <- aggregate(gdpm, by = list(gdpm$country), FUN = mean)
+gdpc$cow <- countrycode(gdpc$Group.1, "country.name", "cown")
+gdpc <- gdpc %>%
+  mutate(gdp = round(cgdppc,0),
+         pop = round(pop,0))
+gdpc <- select(gdpc, cow, gdp, pop)
+
+gdpc <- completeFun(gdpc, "cow")
+```
+
+#### ILO - Social Spending
+
+Public Social Expenditure as a % of GDP (Table .16)
+https://www.social-protection.org/gimi/gess/ShowWiki.action?id=594#tabs-3
+
+```{r ilo, warning = F, message = F}
+
+
+socp <- read.xlsx(here::here("data/54614.xlsx"), startrow = 8, sheetName = "B.16 Data (Print)")
+
+socp <- completeFun(socp, "NA..1")
+
+socp <- select(socp, NA..1, NA..18, NA..19, NA..20)
+
+colnames(socp) <- c("country","soc_spend","year","source")
+
+socp$country <- as.character(socp$country)
+socp$soc_spend <- as.numeric(as.character(socp$soc_spend))
+
+socp$cow <- countrycode(socp$country, "country.name","cown")
+
+socp <- completeFun(socp, "soc_spend")
+
+```
+
+#### Policy Responses
+
+##### Stay at home restriction timing
+
+Mandatory =  a code of 2 or 3
+
+Policy Responses to the Coronavirus Pandemic, by Hannah Ritchie, Max Roser, Esteban Ortiz-Ospina and Joe Hasell 
+https://ourworldindata.org/policy-responses-covid (downloaded June 19th, reformated date column to yyyy-mm-dd)
+
+
+```{r roser, warning = F, message = F}
+presp <- read.csv(here::here("data/stay-at-home-covid.csv"), header = T)
+colnames(presp) <- c("country","iso","date","policy")
+presp <- presp %>%
+  mutate(date = as.Date(date),
+         cow = countrycode(country, "country.name","cown"),
+         stay_home = ifelse(policy == 2 | policy == 3, 1, 0),
+         stay_home_l1 = lag(stay_home, 1L),
+         stay_dif = stay_home - stay_home_l1)
+
+# first instance of mandatory stay at home order
+
+presp <- presp %>%
+  group_by(cow) %>%
+  mutate(stay_home_1st = dplyr::if_else(stay_dif == 1, as.Date(date), as.Date("2020-06-02")),
+         stay_home_day = min(stay_home_1st, na.rm=T)) %>%
+  ungroup()
+
+# US had no systematic stay home order (only some states)
+
+presp$stay_home_day <- dplyr::if_else(presp$cow == 2, as.Date("2020-06-02"), presp$stay_home_day)
+
+presp$days_since_stayhome <- as.Date("2020-06-02") - presp$stay_home_day
+
+presp <- select(presp, cow, days_since_stayhome, stay_home_day)
+presp <- aggregate(presp, by = list(presp$cow), FUN = min)
+```
+
+##### School Closures
+
+https://www.bsg.ox.ac.uk/research/research-projects/coronavirus-government-response-tracker#data
+
+Removed notes from bottom of csv by hand
+OxCGRT_timeseries_all.csv
+School closures:
+0 - No measures
+1 - recommend closing
+2 - Require closing (only some levels or categories,
+eg just high school, or just public schools)
+3 - Require closing all levels
+No data - blank
+
+The data for the US are false. Not all states closed schools. But as I recoded the mandatory stay at home variable to indicate that the federal government never gave mandatory stay home orders, it is OK to use this date and then take the midpoint (stay home and school closures) as the government treatment variable https://www.edweek.org/ew/section/multimedia/map-coronavirus-and-school-closures.html
+
+Japan closed schools Feb 27th https://www.bbc.com/news/world-asia-51663182
+
+
+```{r schooldata, warning = F}
+presps <- read.csv(here::here("data/OxCGRT_timeseries_all.csv"), header = F)
+colnames(presps) <- c("Country","iso", as.character(presps[1,3:156]))
+presps <- presps[-c(1),-c(2)]
+presps_long <- reshape(presps, idvar = "Country", direction = "long", v.names = "sch", varying = 2:155)
+
+das <- seq.Date(as.Date("2020-1-1"),as.Date("2020-6-2"), by = "days")
+dasd <- seq.int(1,154)
+  
+  
+dasf <- data.frame(time = dasd, date = das)
+
+presps_long <- left_join(presps_long,dasf, by = "time")
+presps_long$cow <- countrycode(presps_long$Country, "country.name", "cown")
+presps_long <- select(presps_long, cow, sch, date)
+
+# sort
+presps_long <- presps_long[order(presps_long$cow, presps_long$date),]
+
+presps_long <- presps_long %>%
+  mutate(schs = ifelse(sch > 1, 1, 0),
+         schsl = lag(schs, 1L),
+         sch_dif =  schs - schsl)
+
+presps_long <- presps_long %>%
+  group_by(cow) %>%
+  mutate(sch_datel = dplyr::if_else(sch_dif == 1, as.Date(date), as.Date("2020-6-2")),
+         sch_date = min(sch_datel, na.rm=T)) %>%
+  ungroup()
+
+presps_long <- select(presps_long, cow, date, sch_date)
+presps_long <- aggregate(presps_long, by = list(presps_long$cow), FUN = min)
+presps_long$sch_date <- dplyr::if_else(presps_long$cow == 740, as.Date("2020-2-27"), as.Date(presps_long$sch_date))
+
+```
+
+
+
+### Figure 1. Outbreak Severity by Country
+
+
+As testing rates vary dramatically by country, I take the number of deaths with a 2.5 week lead as a better indicator of the severity of the outbreak by country. Those who died were inevitably sick or showing symptoms 18 days prior. 
+
+```{r tbl1cases, warning=F, message=F, echo=T}
+
+# this means the series ends at 06-01
+
+deaths_long <- subset(deaths_long, date < as.Date("2020-06-02"))
+
+# keep two extra days for plotting empty space
+
+deaths_long$dead_lead <- ifelse(deaths_long$date > as.Date("2020-05-31"), NA, deaths_long$dead_lead)
+
+# Using countries
+deaths_longC <- subset(deaths_long, cow %in% use_countriesa)
+
+
+# add Country name
+deaths_longC$Country <- countrycode(deaths_longC$cow, "cown", "iso3c")
+deaths_longC$Country <- ifelse(deaths_longC$cow ==  347, "KOS", deaths_longC$Country)
+
+
+
+
+# log deaths
+deaths_longC$dead_lead_log <- ifelse(deaths_longC$dead_lead > 3,log(deaths_longC$dead_lead),1)
+
+# squared log deaths to accentuate differences
+deaths_longC$dead_lead_log <- deaths_longC$dead_lead_log*deaths_longC$dead_lead_log
+
+# create a label map so they do not overlap
+deaths_longCL <- subset(deaths_longC, date == as.Date("2020-05-31"))
+deaths_longCL <- deaths_longCL %>%
+  mutate(date = ifelse(Country == "DEU" | Country == "RUS" | Country == "TUR" | Country == "ECU" | Country == "COL" | Country == "ZAF" | Country == "PRT" | Country == "BGD" | Country == "CHE" | Country == "UKR" | Country == "JPN" | Country == "DNK" | Country == "AFG" | Country == "CZE" | Country == "ISR" | Country == "KOR" | Country == "MAR" | Country == "GRC" | Country == "LUX" | Country == "HRV" | Country == "LTU" | Country == "ALB" | Country == "KGZ" | Country == "SVK" | Country == "NZL" | Country == "GEO" | Country == "ISL" | Country == "VNM" | Country == "TWN", "2020-06-06", "2020-06-01"),
+         dead_lead_log = ifelse(Country == "CHE", 59.1, dead_lead_log),
+         dead_lead_log = ifelse(Country == "DNK", 41.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "UKR", 48.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "CZE", 34.5, dead_lead_log),
+         dead_lead_log = ifelse(Country == "KOR", 30.6, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MYS", 24.2, dead_lead_log),
+         dead_lead_log = ifelse(Country == "AUS", 21.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "LUX", 23.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "FIN", 34.5, dead_lead_log),
+         dead_lead_log = ifelse(Country == "KOS", 14, dead_lead_log),
+         dead_lead_log = ifelse(Country == "ALB", 14.5, dead_lead_log),
+         dead_lead_log = ifelse(Country == "LVA", 12.5, dead_lead_log),
+         dead_lead_log = ifelse(Country == "GRC", 26.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "KGZ", 12.5, dead_lead_log),
+         dead_lead_log = ifelse(Country == "NZL", 9, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SVK", 10.5, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MEX", 99, dead_lead_log),
+         dead_lead_log = ifelse(Country == "ESP", 103.8, dead_lead_log),
+         dead_lead_log = ifelse(Country == "CRI", 7.35, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SLV", 5.78, dead_lead_log),
+         dead_lead_log = ifelse(Country == "BRN", 2.6, dead_lead_log),
+         dead_lead_log = ifelse(Country == "TWN", 3, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MLT", 4.16, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SWE", 73.2, dead_lead_log),
+         dead_lead_log = ifelse(Country == "ZAF", 55.5, dead_lead_log),
+          dead_lead_log = ifelse(Country == "ROU", 53.4, dead_lead_log),
+         dead_lead_log = ifelse(Country == "ISL", 5.15, dead_lead_log),
+         dead_lead_log = ifelse(Country == "CYP", 8.95, dead_lead_log),
+         dead_lead_log = ifelse(Country == "SVK", 10.8, dead_lead_log))
+
+# Using countries (study two)
+deaths_longCa <- deaths_longC
+deaths_longCLa <- deaths_longCL
+
+# Using countries (study one)
+deaths_longC <- subset(deaths_longC, Country!= "MKD" & Country!= "BIH" & Country!= "HRV" & Country!="SVN")
+deaths_longCL <- subset(deaths_longCL, Country!= "MKD" & Country!= "BIH" & Country!= "HRV" & Country!="SVN")
+
+
+agg_png(file = here::here("results/Fig1.png"), width = 1200, height = 1020,  res = 144)
+ggplot(data=deaths_longC, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
+    geom_line() +
+  labs(x= "", y = "Outbreak Severity (log deaths, 18 day lead)") +
+  geom_segment(aes(x = as.Date("2020-03-27"), y = 1, xend = as.Date("2020-03-27"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
+  geom_segment(aes(x = as.Date("2020-04-30"), y = 1, xend = as.Date("2020-04-30"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
+  annotate("text", x= as.Date("2020-01-21"), y= 5, 
+           label="5", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 30, 
+           label="250", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 55, 
+           label="2k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 80, 
+           label="8k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 105, 
+           label="30k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 130, 
+           label="120k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-04-13"), y=137, label="survey time-frame", size = 4, color="black") +
+  scale_x_date(date_breaks = "2 weeks" , date_labels = "%d-%b") +
+  geom_text(data = deaths_longCL, aes(label = Country, colour = Country, x = as.Date(date), y = dead_lead_log, hjust = -.1), size = 2.62) +
+  theme(legend.position = "none",
+        panel.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.y = element_text(size=14, vjust=-0.5),
+        axis.text.x = element_text(vjust=1, hjust=0.35, color = "gray20", size = 12),
+        plot.margin = margin(0, 1, 0, 0, "cm"))
+dev.off()
+knitr::include_graphics(here::here("results/Fig1.png"))
+
+# this is a version for study 2
+
+# labels need adjustment
+deaths_longCLa <- deaths_longCLa %>%
+  mutate(dead_lead_log = ifelse(Country == "AUS", 20.2, dead_lead_log),
+         dead_lead_log = ifelse(Country == "BIH", 25.3, dead_lead_log),
+         dead_lead_log = ifelse(Country == "BGR", 26.9, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MKD", 28.6, dead_lead_log),
+         dead_lead_log = ifelse(Country == "MYS", 23.6, dead_lead_log))
+
+
+fig1_2 <- ggplot(data=deaths_longCa, aes(x=date , y=dead_lead_log, group=Country, color=Country)) +
+    geom_line() +
+  labs(x= "", y = "Outbreak Severity (18 day lead of COVID-19 deaths)") +
+  geom_segment(aes(x = as.Date("2020-03-27"), y = 1, xend = as.Date("2020-03-27"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
+  geom_segment(aes(x = as.Date("2020-04-30"), y = 1, xend = as.Date("2020-04-30"), yend = 135), linetype = "dashed", color = "black", size = 0.8) +
+  annotate("text", x= as.Date("2020-01-21"), y= 5, 
+           label="5", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 30, 
+           label="250", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 55, 
+           label="2k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 80, 
+           label="8k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 105, 
+           label="30k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-01-21"), y= 130, 
+           label="120k", size=4.5, color = "gray20") +
+  annotate("text", x= as.Date("2020-04-13"), y=137, label="survey time-frame", size = 4, color="black") +
+  scale_x_date(date_breaks = "2 weeks" , date_labels = "%d-%b") +
+  geom_text(data = deaths_longCLa, aes(label = Country, colour = Country, x = as.Date(date), y = dead_lead_log, hjust = -.1), size = 2.62) +
+  theme(legend.position = "none",
+        panel.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.y = element_text(size=14, vjust=-0.5),
+        axis.text.x = element_text(vjust=1, hjust=0.35, color = "gray20", size = 12),
+        plot.margin = margin(0, 1, 0, 0, "cm"))
+
+# log conversion
+# 30 = 250
+# 55 = 2,000
+# 80 = 8,000
+# 105 = 28,000
+# 130 = 120,000
+
+
+```
+
+ 
+
+### Merge Data
+
+```{r aggregate, message=F, warning=F}
+
+# The wider the date range the greater the chance of introducing global/regional period effects. Reduce range, but maximize country sample. 
+
+# cis_b is to remain at individual level
+cis_b <- subset(cis, date < as.Date('2020-05-01'))
+
+cis_a <- aggregate(cis_b, by=list(cis_b$cow),
+  FUN=mean, na.rm=T)
+
+# added 16-Aug-20, calculate SE for study_two
+cis_asd <- aggregate(cis_b, by=list(cis_b$cow),
+  FUN=sd, na.rm=T)
+cis_asd <- select(cis_asd, Group.1, concern_self)
+colnames(cis_asd) <- c("cow", "concern_self_sd")
+
+cis_a <- left_join(cis_a, cis_asd, by = "cow")
+
+cis_b$cases <- ifelse(cis_b$cases<20, NA, cis_b$cases)
+cis_a$cases <- ifelse(cis_a$cases<20, NA, cis_a$cases)
+cis_a <- completeFun(cis_a, "cases")
+
+cis_a$concern_self_se <- cis_a$concern_self_sd/sqrt(cis_a$cases)
+
+cis_a <- select(cis_a, cow, concern_self, concern_society, dead, dead_l5, conf, conf_l5, conf_delta, dead_lead, dead_1st_date, curve_max, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, Corona_concerns_4, Corona_concerns_5, concern_self_se, cases)
+
+
+colnames(cis_a) <- c("cow","concern_self","concern_society", "dead", "dead_lag5", "conf", "conf_lag5", "conf_delta","dead_lead", "dead_1st_date", "curve_max","Corona1", "Corona2", "Corona3", "Corona4", "Corona5", "concern_self_se","cases")
+# add iso
+
+
+cis_a$iso <- countrycode(cis_a$cow, "cown", "iso3c")
+
+
+```
+
+
+```{r merge, include = F}
+
+finaldf_C <- full_join(cis_a, socp, by = "cow")
+finaldf_C <- full_join(finaldf_C, geip, by = "cow")
+finaldf_C <- full_join(finaldf_C, gdpc, by = "cow")
+finaldf_C <- left_join(finaldf_C, presp, by = "cow")
+finaldf_C <- left_join(finaldf_C, presps_long, by = "cow")
+
+# Make an individual level correlation table dataset
+
+cis_b <- left_join(cis_b, presp, by = "cow")
+cis_b <- left_join(cis_b, socp, by = "cow")
+cis_b <- left_join(cis_b, geip, by = "cow")
+cis_b <- left_join(cis_b, gdpc, by = "cow")
+cis_b <- left_join(cis_b, presps_long, by = "cow")
+
+cis_b$socpolicy <- standardize(cis_b$soc_spend * cis_b$lfcov)
+
+
+# impute population for Grenada 111k and Brunei 428k (according to Google, June 19th)
+
+finaldf_C$pop <- ifelse(finaldf_C$cow == 55, 111, ifelse(finaldf_C$cow == 835, 428, finaldf_C$pop))
+
+
+# clean up
+finaldf_C <- finaldf_C %>%
+  mutate(iso = countrycode(cow, "cown", "iso3c"),
+         country = ifelse(iso == "ARG", "Argentina", country),
+         country = ifelse(iso == "BIH", "Bosnia Herzegovinia", country),
+         soc_spend = ifelse(iso == "ARG", 17, soc_spend), # slightly more than Chile is a good rough guess
+         soc_spend = ifelse(iso == "BIH", 10, soc_spend), # analogous to lowest E European countries
+         lfcov = ifelse(iso == "BIH", 30, lfcov),
+         lfcov = ifelse(iso == "ARE", 15, lfcov), # must be very low - only for Emeratis
+         lfcov = ifelse(iso == "AFG", 25, lfcov), # analogous to lowest societies
+         country = ifelse(iso == "MKD", "N Macedonia", country),
+         soc_spend = ifelse(iso == "MKD", 10, soc_spend), # as with BIH
+         lfcov = ifelse(iso == "MKD", 30, lfcov),
+         lfcov = ifelse(iso == "QAT", 15, lfcov), # like ARE (UAE)
+         dead_lead_log = ifelse(dead_lead == 0 | dead_lead == 1, 1, log(dead_lead)),
+         days_since_stayhome = as.numeric(days_since_stayhome),
+         gdp = ifelse(gdp > 68000, 68, gdp/1000), #trim GDP to improve visualization
+         stay_home_day = as.Date(stay_home_day),
+         sch_date = as.Date(sch_date))
+
+# Welfare State Strength Measure
+
+finaldf_C$socpolicy <- standardize(finaldf_C$soc_spend * finaldf_C$lfcov)
+
+finaldf_C$Country <- countrycode(finaldf_C$cow, "cown", "country.name")
+
+
+# Three countries missing days since stay at home
+# Malta never imposed stay at home for everyone https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Malta
+# Grenada March 29th https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Grenada
+# North Macedonia March 18th
+
+finaldf_C$days_since_stayhome <- ifelse(finaldf_C$Country == "Malta", 0, ifelse(finaldf_C$Country == "Grenada", 63, ifelse(finaldf_C$Country == "North Macedonia", 84, finaldf_C$days_since_stayhome)))
+
+finaldf_C$stay_home_day <- dplyr::if_else(finaldf_C$Country == "Malta", as.Date("2020-06-02"), dplyr::if_else(finaldf_C$Country == "Grenada", as.Date("2020-03-31"), dplyr::if_else(finaldf_C$Country == "North Macedonia", as.Date("2020-03-10"), finaldf_C$stay_home_day)))
+
+# School closure dates, google search
+finaldf_C$sch_date <- dplyr::if_else(finaldf_C$Country == "Malta", as.Date("2020-03-12"), dplyr::if_else(finaldf_C$Country == "Grenada", as.Date("2020-03-13"), dplyr::if_else(finaldf_C$Country == "North Macedonia", as.Date("2020-03-10"), finaldf_C$sch_date)))
+
+# Days to Government Intervention, time it Took Government to Introduce Stay Home Rule taken as the midpoint of the school closure and stay at home
+
+finaldf_C$intervention1 <- as.numeric(as.Date(finaldf_C$stay_home_day) - as.Date(finaldf_C$dead_1st_date))
+finaldf_C$intervention2 <- as.numeric(as.Date(finaldf_C$sch_date) - as.Date(finaldf_C$dead_1st_date))
+finaldf_C$intervention <- (finaldf_C$intervention1 + finaldf_C$intervention2)/2
+
+
+# Two countries have no deaths, VNM & BRN so rescale their values to be closer to the distribution on intervention
+
+finaldf_C$intervention <- ifelse(finaldf_C$intervention < -25, -25, finaldf_C$intervention)
+
+# Sweden major outlier, trim to be closer
+finaldf_C$intervention <- ifelse(finaldf_C$intervention > 60, 60, finaldf_C$intervention)
+
+finaldf_C <- completeFun(finaldf_C, "iso")
+
+# somehow ended up with a duplicate of the Russian case
+finaldf_C$cow <- ifelse(finaldf_C$cow==365 & finaldf_C$pop < 200000, NA, finaldf_C$cow)
+finaldf_C <- completeFun(finaldf_C, "cow")
+
+# Concerns about data, for example the question wording or languages available. Or simply just massive outliers affecting the regression lines. Remove GTM, MKD, BIH, HRV.
+
+finaldf_C <- select(finaldf_C, country, intervention, dead_1st_date, stay_home_day, sch_date, curve_max, everything())
+
+finaldf_C <- finaldf_C %>%
+  mutate(dead_log = log(dead),
+         dead_log = ifelse(dead_log=="-Inf", 0, ifelse(dead_log=="Inf", 0, dead_log)),
+         dead_lag5_log = log(dead_lag5),
+         dead_lag5_log = ifelse(dead_lag5_log=="-Inf", 0, ifelse(dead_lag5_log=="Inf", 0, dead_lag5_log)),
+         conf_log = log(conf),
+         conf_log = ifelse(conf_log=="-Inf", 0, ifelse(conf_log=="Inf", 0, conf_log)),
+         conf_lag5_log = log(conf_lag5),
+         conf_lag5_log = ifelse(conf_lag5_log=="-Inf", 0, ifelse(conf_lag5_log=="Inf", 0, conf_lag5_log)),
+         dead_delta = dead - dead_lag5, # increase in 5 days
+         dead_delta_log = log(dead_delta),
+         conf_delta_log = log(conf_delta),
+         dead_delta_log = ifelse(dead_delta_log=="-Inf", 0, ifelse(dead_delta_log=="Inf", 0, dead_delta_log)),
+         conf_delta_log = ifelse(conf_delta_log=="-Inf", 0, ifelse(conf_delta_log=="Inf", 0, conf_delta_log)),
+         deadpc = dead/pop,
+         dead_deltapc = dead_delta/pop,
+         deadpc_log = log(deadpc),
+         dead_deltapc_log = log(dead_deltapc),
+         dead_lead_log2 = dead_lead_log^2,
+         days_since_peak = as.numeric(as.Date("2020-6-2") - curve_max))
+
+# VNM GRD (0 deaths) BRN (3 deaths) give them mean scores on days since peak as they might still have a peak or may never have a peak and may only rely on other countries' experiences to inform risk perceptions
+
+finaldf_C$days_since_peak <- ifelse(finaldf_C$iso == "VNM" | finaldf_C$iso == "BRN" | finaldf_C$iso == "GRD", 45, finaldf_C$days_since_peak)
+
+
+
+# necessary for plotting features
+finaldf_C$spendr <- round(finaldf_C$soc_spend,0)
+mid <- 14
+
+# remove extra rows
+finaldf_C <- select(finaldf_C, cow, concern_self, concern_society, dead, dead_lag5, conf, conf_lag5, iso, country, soc_spend, year, source, lfcov, gdp, pop, dead_log, dead_lag5_log, conf_log, conf_lag5_log, dead_delta, conf_delta, dead_delta_log, conf_delta_log, deadpc, dead_deltapc, deadpc_log, dead_deltapc_log, spendr, dead_lead, dead_lead_log, socpolicy, days_since_stayhome, sch_date, intervention, Corona1, Corona2, Corona3, Corona4, Corona5, curve_max, days_since_peak, cases)
+
+# rate of change gets wonky when aggregating, move cases back to zero
+finaldf_C$conf_delta <- ifelse(finaldf_C$conf_delta < 0.25 & finaldf_C$conf_delta > 0, 0, finaldf_C$conf_delta)
+
+finaldf_C$conf_delta <- ifelse(finaldf_C$conf_delta > -0.3 & finaldf_C$conf_delta < -0.1, 0.3, finaldf_C$conf_delta)
+
+# VNM GRD coded wrong due to the zeros, they have a 0 rate of change (flat)
+finaldf_C$conf_delta <- ifelse(finaldf_C$iso == "VNM" | finaldf_C$iso == "GRD", 0, finaldf_C$conf_delta)
+
+# Days since peak has a calculation error, if the value is great than 18 then it was coded with a deaths lead, but it should be current, if less than 18 it moves toward zero (which make the data censored, as people cannot know in advance when the curve will inflect, i.e., negative numbers not allowed)
+
+finaldf_C$days_since_peak <- ifelse(finaldf_C$days_since_peak > 18, finaldf_C$days_since_peak-18, finaldf_C$days_since_peak)
+
+# fix -Inf values
+finaldf_C$deadpc_log <- ifelse(finaldf_C$deadpc_log == "-Inf", -10, finaldf_C$deadpc_log)
+finaldf_C$dead_deltapc_log <- ifelse(finaldf_C$dead_deltapc_log == "-Inf", -10.5, finaldf_C$dead_deltapc_log)
+
+# create an average scale of concern
+finaldf_C$concern <- (finaldf_C$concern_self + finaldf_C$concern_society)/2
+
+# remove missing cases
+finaldf_C <- completeFun(finaldf_C, "intervention")
+
+# store a copy of the full data
+finaldf_Ca <- finaldf_C
+finaldf_C <- subset(finaldf_C, iso!= "MKD" & iso!= "BIH" & iso!= "HRV" & iso!="SVN")
+
+# Standardize DVs
+finaldf_C$concern_self <- standardize(finaldf_C$concern_self)
+finaldf_C$concern_society <- standardize(finaldf_C$concern_society)
+
+# measure as inverse so that intervention = a faster response
+
+finaldf_C$intervention <- finaldf_C$intervention*-1
+
+# rm(f1,f2,fit1,fit2,gdpm,geip,socp,hopkins,deaths_long,deaths,datem, cor, confirmed_long, confirmed, cis1_na)
+```
+
+
+```{r measurement1, echo=T}
+# individual level
+cor <- select(cis_b, Corona_concerns_1, Corona_concerns_2, Corona_concerns_3, concern_self, Corona_concerns_4, Corona_concerns_5, concern_society)
+
+corC <- select(finaldf_C, Corona1, Corona2, Corona3, concern_self, Corona4, Corona5, concern_society, days_since_peak, conf_delta, socpolicy, gdp, intervention)
+
+corC <- subset(corC, !is.na(intervention))
+cor <- subset(cor, !is.na(concern_self & !is.na(concern_society)))
+
+f1 <- cor(cor, use = "pairwise.complete.obs")
+f2 <- cor(corC, use = "pairwise.complete.obs")
+# corrplot::corrplot(f1)
+
+# The country question is an outlier
+cor1 <- kable(f1, digits = 2, col.names = c("Concern_Self", "Concern_Family", "Concern_Friends","Personal_Concern_Scale", "Concern_Country", "Concern_Other_Countries", "Societal_Concern_Scale"))
+cor2 <- kable(f2, digits = 2, col.names = c("Concern_Self", "Concern_Family", "Concern_Friends","Personal_Concern_Scale", "Concern_Country", "Concern_Other_Countries", "Societal_Concern_Scale", "Days Since Peak Outbreak", "Weekly Change in Cases","Welfare State Strength, spend*coverage", "GDP per capita", "Government Response, days since 1st death"))
+```
+
+#### Individual Level Correlations
+
+```{r measurement1a, echo=T}
+kable_styling(cor1)
+```
+
+#### Country Level Correlations
+```{r measurement1b, echo=T}
+kable_styling(cor2)
+```
+
+```{r savepoint}
+save.image(file=here::here("data/cis2.RData"))
+
+```
+
+
+
+
